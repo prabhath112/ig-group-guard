@@ -1,0 +1,24 @@
+name: Android SDK + bundletool
+description: JDK 21, Android platform 36 / build-tools 36.0.0, and a hash-checked bundletool jar.
+outputs:
+  bundletool:
+    description: Path to the bundletool jar
+    value: ${{ steps.bt.outputs.path }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+      with:
+        distribution: temurin
+        java-version: '21'
+    - name: SDK packages
+      shell: bash
+      run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+    - name: bundletool 1.18.3 (sha256 pinned)
+      id: bt
+      shell: bash
+      run: |
+        jar="$RUNNER_TEMP/bundletool-all-1.18.3.jar"
+        curl -fsSL -o "$jar" https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
+        echo "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29  $jar" | sha256sum -c -
+        echo "path=$jar" >> "$GITHUB_OUTPUT"

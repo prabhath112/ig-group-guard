@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="512" height="512" role="img" aria-label="IG Group Guard logo: three people behind a no sign">
+  <title>IG Group Guard</title>
+  <!-- Original artwork for IG Group Guard. Same geometry as app/res/drawable/ic_launcher_foreground.xml -->
+  <rect width="108" height="108" rx="24" fill="#0F766E"/>
+  <clipPath id="inside"><circle cx="54" cy="54" r="25"/></clipPath>
+  <g fill="#FFFFFF" clip-path="url(#inside)">
+    <g opacity="0.8">
+      <circle cx="38" cy="49" r="6"/>
+      <path d="M27,71 a11,11 0 0 1 22,0 z"/>
+      <circle cx="70" cy="49" r="6"/>
+      <path d="M59,71 a11,11 0 0 1 22,0 z"/>
+    </g>
+    <circle cx="54" cy="44" r="8"/>
+    <path d="M40,71 a14,14 0 0 1 28,0 z"/>
+  </g>
+  <g fill="none" stroke="#FBBF24" stroke-width="6" stroke-linecap="round">
+    <circle cx="54" cy="54" r="28"/>
+    <path d="M34.2,34.2 L73.8,73.8"/>
+  </g>
+</svg>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">IG Group Guard</string>
+
+    <!-- Accessibility settings screen description -->
+    <string name="service_desc">Covers the \"Send to new group chat\" button in Instagram\'s share sheet so a group is never created by an accidental tap. Reads only the layout of that screen on your phone. Collects and sends nothing.</string>
+
+    <!-- Prominent disclosure (Google Play Accessibility API policy). Keep in sync with docs/privacy-policy.md -->
+    <string name="disclosure_title">Before you start</string>
+    <string name="disclosure_body">IG Group Guard uses the Accessibility Service API. It reads the layout of Instagram\'s share screen on your phone (button names and positions) only to find the \"Send to new group chat\" button and cover it, so a group is never created by an accidental tap. IG Group Guard does not read your messages or contacts, does not collect or store any personal data, and has no internet access, so nothing leaves your phone. You can turn it off any time in Settings &gt; Accessibility.</string>
+    <string name="disclosure_declined">IG Group Guard cannot work without this. Nothing was turned on. You can agree later from this screen.</string>
+    <string name="agree">Agree</string>
+    <string name="decline">No thanks</string>
+
+    <!-- Status screen -->
+    <string name="status_on">IG Group Guard is ON</string>
+    <string name="status_off">IG Group Guard is OFF</string>
+    <string name="status_off_hint">If you already turned it on, Android may have stopped it (force stop or battery saver). Open Accessibility settings, switch IG Group Guard off and on again.</string>
+    <string name="what_it_does">When you share a reel or post to several people, the \"Send to new group chat\" button is greyed out and cannot be tapped. \"Send separately\" keeps working.</string>
+    <string name="how_to_enable">To turn it on: Settings &gt; Accessibility &gt; Installed apps (or Downloaded apps) &gt; IG Group Guard &gt; On.\n\nAndroid 13 or newer: if the switch is greyed out, open Settings &gt; Apps &gt; IG Group Guard, tap the menu (three dots) and choose \"Allow restricted settings\", then try again.\n\nSome phones stop background services to save battery. If the button comes back, set IG Group Guard\'s battery use to Unrestricted.</string>
+    <string name="open_settings">Open Accessibility settings</string>
+    <string name="privacy_policy">Privacy policy</string>
+    <string name="withdraw">Withdraw consent and delete data</string>
+    <string name="not_affiliated">IG Group Guard is an independent app. It is not affiliated with, endorsed by, or sponsored by Instagram or Meta. Instagram is a trademark of its owner.</string>
+</resources>

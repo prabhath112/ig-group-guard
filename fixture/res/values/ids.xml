@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Same id names as Instagram 455.0.0.0.47 share sheet (from uiautomator dump). -->
+<resources>
+    <item type="id" name="direct_send_button_multi_select" />
+    <item type="id" name="direct_send_to_group_button_vertical" />
+    <item type="id" name="button_text" />
+    <item type="id" name="fixture_toggle" />
+    <item type="id" name="fixture_move" />
+</resources>
