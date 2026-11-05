@@ -1,0 +1,9 @@
+build/
+*.keystore
+*.jks
+*.properties
+__pycache__/
+site/node_modules/
+site/dist/
+.vercel/
+.env*
