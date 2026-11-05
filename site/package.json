@@ -1,0 +1,15 @@
+{
+  "name": "ig-group-guard-site",
+  "private": true,
+  "type": "module",
+  "description": "Static site for IG Group Guard: landing page with APK download, privacy policy, terms.",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "marked": "18.1.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

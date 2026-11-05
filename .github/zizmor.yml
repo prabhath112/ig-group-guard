@@ -1,0 +1,8 @@
+# zizmor configuration (https://docs.zizmor.sh/configuration/)
+rules:
+  self-repository:
+    # Keep the workspace-relative `./` form: actionlint (CI lint) does not accept GitHub's
+    # `$/` syntax yet. Every job checks out only this repository (persist-credentials: false)
+    # and clones nothing else, so `./` cannot resolve to foreign code. Revisit when actionlint
+    # supports `$/`.
+    disable: true

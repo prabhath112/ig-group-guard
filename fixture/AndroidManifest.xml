@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TEST FIXTURE ONLY. Uses Instagram's package name so the service treats it as Instagram.
+     Install only on emulators / devices without the real Instagram (install fails there anyway:
+     signature mismatch). versionName "fixture" is how test/e2e.py recognises it. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.instagram.android"
+    android:versionCode="1"
+    android:versionName="fixture">
+
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="36" />
+
+    <application android:label="IG share-sheet fixture"
+        android:theme="@android:style/Theme.Material.NoActionBar">
+        <activity
+            android:name="io.github.prabhath112.iggroupguard.fixture.ShareSheetActivity"
+            android:configChanges="orientation|screenSize|screenLayout"
+            android:exported="true" />
+    </application>
+</manifest>

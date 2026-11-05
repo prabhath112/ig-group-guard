@@ -1,0 +1,33 @@
+name: Bug report
+description: The group button is not covered, is covered in the wrong place, or the app misbehaves.
+labels: [bug]
+body:
+  - type: input
+    id: phone
+    attributes:
+      label: Phone model and Android version
+      placeholder: e.g. OnePlus Nord 5, Android 16
+    validations:
+      required: true
+  - type: input
+    id: instagram
+    attributes:
+      label: Instagram version
+      description: Settings > Apps > Instagram > App details
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: IG Group Guard version
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: "Please do not include screenshots that show other people's names or messages. For security issues use Security > Report a vulnerability instead."

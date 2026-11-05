@@ -1,0 +1,78 @@
+name: Release
+
+# Push a tag vX.Y.Z (matching versionName in app/AndroidManifest.xml) to build, sign and publish
+# a GitHub Release, then redeploy the website so it shows the new version.
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, sign, publish
+    runs-on: ubuntu-24.04
+    environment: release        # holds the upload key; only tag refs v* may use it
+    permissions:                # least privilege for this job only:
+      contents: write           # create the release
+      id-token: write           # build provenance attestation
+      attestations: write       # store the provenance attestation
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Tag matches app version
+        run: |
+          v=$(grep -o 'android:versionName="[^"]*"' app/AndroidManifest.xml | cut -d'"' -f2)
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "::error::tag $GITHUB_REF_NAME != versionName $v"; exit 1; }
+      - id: sdk
+        uses: ./.github/actions/android-sdk
+      - name: Upload key
+        env:
+          KEYSTORE_B64: ${{ secrets.UPLOAD_KEYSTORE_B64 }}
+        run: |
+          umask 077
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+      - name: Build signed APK + AAB
+        run: bash build.sh
+        env:
+          BUNDLETOOL: ${{ steps.sdk.outputs.bundletool }}
+          GG_UPLOAD_KS: ${{ runner.temp }}/upload.jks
+          GG_UPLOAD_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+          GG_UPLOAD_PASS: ${{ secrets.UPLOAD_KEY_PASSWORD }}
+      - name: Remove key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.jks"
+      - name: Checksums
+        working-directory: build
+        run: sha256sum ig-group-guard-release.apk ig-group-guard-release.aab > SHA256SUMS && cat SHA256SUMS
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            build/ig-group-guard-release.apk
+            build/ig-group-guard-release.aab
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          # Section "## [X.Y.Z] ..." of CHANGELOG.md up to the next "## " heading (plain-text match).
+          awk -v h="## [$v]" 'index($0, h) == 1 {on = 1; next} /^## / {on = 0} on' CHANGELOG.md > build/NOTES.md
+          [ -s build/NOTES.md ] || { echo "::error::no CHANGELOG.md section for $v"; exit 1; }
+          gh release create "$GITHUB_REF_NAME" --verify-tag --notes-file build/NOTES.md \
+            --title "IG Group Guard $GITHUB_REF_NAME" \
+            build/ig-group-guard-release.apk build/ig-group-guard-release.aab build/SHA256SUMS
+
+  site:
+    name: Redeploy website
+    needs: release
+    uses: ./.github/workflows/site.yml
+    permissions:
+      contents: read # the site job only checks out the repo
+    # No secrets passed on purpose: the site job reads VERCEL_TOKEN from its own
+    # `vercel-production` environment, so the signing key never reaches it.
