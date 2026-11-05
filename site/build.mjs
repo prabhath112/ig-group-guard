@@ -71,7 +71,19 @@ Read the <a href="privacy-policy">privacy policy</a>.</p>
 <li>Open IG Group Guard, read the notice and tap <strong>Agree</strong>.</li>
 <li>Tap <strong>Open Accessibility settings</strong> → Installed apps → IG Group Guard → On.</li>
 <li>Android 13 or newer: if the switch is greyed out, open Settings → Apps → IG Group Guard → ⋮ → Allow restricted settings.</li>
-</ol>`;
+</ol>
+<h2 id="play-protect">"Blocked by Play Protect"?</h2>
+<p>In India and some other countries, Google Play Protect blocks any app that uses the Accessibility
+service when it is installed from a browser, chat app or file manager. IG Group Guard needs that
+service to cover the button, so the download above can be blocked there. This is a Google rule for
+sideloaded apps, not a problem with the file: you can check it against the
+<a href="${SUMS}">SHA-256 checksums</a>.</p>
+<ul>
+<li><strong>Google Play:</strong> installs from Google Play are not blocked. The Play Store version is not published yet.</li>
+<li><strong>From a computer:</strong> turn on USB debugging, connect the phone and run
+<code>adb install ig-group-guard-release-v${ver}.apk</code>.</li>
+</ul>
+<p class="muted">We do not recommend turning Play Protect off to get around this; it protects you from real malware.</p>`;
 
 await rm(OUT, { recursive: true, force: true });
 await mkdir(OUT, { recursive: true });
