@@ -3,7 +3,7 @@
 // same output works on Vercel (root) and GitHub Pages (/ig-group-guard/). No inline CSS or JS.
 // The version shown comes from app/AndroidManifest.xml in this checkout (no network access at
 // build time). The site is redeployed by the release workflow, so it matches the newest release.
-// Downloads use GitHub's /releases/latest/download/ URL, which always points at the newest one.
+// Download links point at the release for that version.
 import { readFile, writeFile, mkdir, copyFile, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,8 +12,6 @@ import { marked } from "marked";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "site", "dist");
 const REPO = "prabhath112/ig-group-guard";
-const APK = `https://github.com/${REPO}/releases/latest/download/ig-group-guard-release.apk`;
-const SUMS = `https://github.com/${REPO}/releases/latest/download/SHA256SUMS`;
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -51,6 +49,10 @@ async function md(file) {
 }
 
 const ver = await appVersion();
+// Release files carry the version (ig-group-guard-release-vX.Y.Z.apk), so link that release directly.
+const DL = `https://github.com/${REPO}/releases/download/v${ver}`;
+const APK = `${DL}/ig-group-guard-release-v${ver}.apk`;
+const SUMS = `${DL}/SHA256SUMS`;
 const version = `Version <a href="https://github.com/${REPO}/releases/tag/v${ver}">${ver}</a>`;
 
 const home = `

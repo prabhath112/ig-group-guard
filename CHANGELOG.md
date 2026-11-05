@@ -7,6 +7,7 @@ as the GitHub Release notes.
 ## [Unreleased]
 
 ### Changed
+- Release files carry the version: `ig-group-guard-release-vX.Y.Z.apk` and `.aab`.
 - Website built by Vercel's GitHub integration; mirror on GitHub Pages; CSS moved out of the
   pages so the Content-Security-Policy no longer allows inline styles.
 - CI: E2E consent test retries when a system dialog covers the app on a fresh emulator;
