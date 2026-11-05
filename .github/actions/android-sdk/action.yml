@@ -13,7 +13,12 @@ runs:
         java-version: '21'
     - name: SDK packages
       shell: bash
-      run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+      # `yes` dies of SIGPIPE when sdkmanager exits; judge the step by sdkmanager's status only.
+      run: |
+        set +o pipefail
+        yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+        status=${PIPESTATUS[1]}
+        exit "$status"
     - name: bundletool 1.18.3 (sha256 pinned)
       id: bt
       shell: bash
