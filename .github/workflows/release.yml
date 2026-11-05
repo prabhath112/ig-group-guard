@@ -1,8 +1,8 @@
 name: Release
 
 # Push a tag vX.Y.Z (matching versionName in app/AndroidManifest.xml) to build, sign and publish
-# a GitHub Release. The websites need no redeploy: they show the version from main and link to
-# /releases/latest/download/, which points at this release as soon as it is published.
+# a GitHub Release with versioned files (ig-group-guard-release-vX.Y.Z.apk/.aab). The websites
+# need no redeploy: they read the version from main and link to that release's files.
 on:
   push:
     tags: ['v*.*.*']
@@ -49,14 +49,19 @@ jobs:
       - name: Remove key
         if: always()
         run: rm -f "$RUNNER_TEMP/upload.jks"
-      - name: Checksums
-        working-directory: build
-        run: sha256sum ig-group-guard-release.apk ig-group-guard-release.aab > SHA256SUMS && cat SHA256SUMS
+      - name: Versioned file names + checksums
+        # Published as ig-group-guard-release-vX.Y.Z.{apk,aab}; SHA256SUMS lists those names.
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp build/ig-group-guard-release.apk "dist/ig-group-guard-release-$GITHUB_REF_NAME.apk"
+          cp build/ig-group-guard-release.aab "dist/ig-group-guard-release-$GITHUB_REF_NAME.aab"
+          (cd dist && sha256sum -- *.apk *.aab > SHA256SUMS && cat SHA256SUMS)
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
-            build/ig-group-guard-release.apk
-            build/ig-group-guard-release.aab
+            dist/*.apk
+            dist/*.aab
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -67,4 +72,4 @@ jobs:
           [ -s build/NOTES.md ] || { echo "::error::no CHANGELOG.md section for $v"; exit 1; }
           gh release create "$GITHUB_REF_NAME" --verify-tag --notes-file build/NOTES.md \
             --title "IG Group Guard $GITHUB_REF_NAME" \
-            build/ig-group-guard-release.apk build/ig-group-guard-release.aab build/SHA256SUMS
+            dist/*.apk dist/*.aab dist/SHA256SUMS

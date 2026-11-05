@@ -37,7 +37,7 @@ yes/no consent flag. Details: [privacy policy](docs/privacy-policy.md).
 
 ## Install
 
-1. Install `ig-group-guard-release.apk` from Releases (or from Google Play once published).
+1. Install `ig-group-guard-release-vX.Y.Z.apk` from Releases (or from Google Play once published).
 2. Open **IG Group Guard**, read the disclosure and tap **Agree**.
 3. Tap **Open Accessibility settings** → **Installed apps** → **IG Group Guard** → **On**.
 4. **Android 13+ sideload:** if the switch is greyed out, **Settings → Apps → IG Group Guard → ⋮ →
@@ -89,8 +89,8 @@ Results and manual checks: [docs/TEST_CASES.md](docs/TEST_CASES.md).
 | Website mirror | https://prabhath112.github.io/ig-group-guard/ | `.github/workflows/site.yml` (GitHub Pages) on every push to `main` |
 | App release | GitHub Releases | push tag `vX.Y.Z` matching `versionName`; `.github/workflows/release.yml` builds, signs (upload key in the protected `release` environment, owner approval), attests provenance and publishes APK, AAB and `SHA256SUMS` with notes from `CHANGELOG.md` |
 
-The site shows the version from `app/AndroidManifest.xml` and links to
-`/releases/latest/download/`, so a new release needs no site redeploy.
+Release files are named `ig-group-guard-release-vX.Y.Z.apk` / `.aab`. The site reads the version
+from `app/AndroidManifest.xml` and links straight to that release's files.
 
 ## Publishing
 

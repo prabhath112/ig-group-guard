@@ -139,7 +139,7 @@ jobs:
           for f in index.html privacy-policy.html terms.html logo.svg; do test -s "site/dist/$f"; done
           v=$(grep -o 'android:versionName="[^"]*"' app/AndroidManifest.xml | cut -d'"' -f2)
           grep -q "Version <a href=\"https://github.com/prabhath112/ig-group-guard/releases/tag/v$v\">$v</a>" site/dist/index.html
-          grep -q 'releases/latest/download/ig-group-guard-release.apk' site/dist/index.html
+          grep -q "releases/download/v$v/ig-group-guard-release-v$v.apk" site/dist/index.html
           grep -q 'prabhath.kumar2000@gmail.com' site/dist/privacy-policy.html
           if grep -l '<script' site/dist/*.html; then echo "::error::script tag found; CSP allows none"; exit 1; fi
           if grep -l '<style\| style=' site/dist/*.html; then echo "::error::inline CSS found; CSP is style-src 'self'"; exit 1; fi
