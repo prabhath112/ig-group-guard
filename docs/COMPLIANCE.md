@@ -25,7 +25,7 @@ Drafts for the developer to review. This is a checklist, not legal advice, and d
 | 17 | Age consent for kids | Done | Target 13+, not designed for children, no ads. |
 | 18 | Unsubscribe link | Not applicable | No emails or marketing. |
 | 19 | License stock images | Done | Logo is original, made for this project. |
-| 20 | Data deletion option | Done | No data collected; uninstall deletes the only stored value (consent flag). |
+| 20 | Data deletion option | Done | No data collected; "Withdraw consent and delete data" or uninstalling deletes the two stored settings (consent flag, Block/Ask choice). |
 
 ## Google Play checklist
 

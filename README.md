@@ -9,13 +9,21 @@ right under "Send separately". One stray tap creates a group of everyone you sel
 confirmation, and exposes them to each other. IG Group Guard greys that button out and makes it
 untappable. "Send separately" and Instagram's deliberate "New group" icon keep working.
 
+Two modes, chosen in the app:
+
+- **Block it** (default): the button is greyed out and a tap does nothing.
+- **Ask me first**: tapping the covered button opens IG Group Guard's own popup, "Create a group
+  chat?", with the number of people selected. **Create group** uncovers Instagram's button for
+  that share screen only, so you can tap it; the next share asks again. The app never taps
+  Instagram's button for you.
+
 IG Group Guard is an independent app. It is not affiliated with, endorsed by, or sponsored by Instagram
 or Meta. Instagram is a trademark of its owner.
 
 ## Privacy in one line
 
-No internet permission, no analytics, no ads, no SDKs, no accounts. The only thing stored is a
-yes/no consent flag. Details: [privacy policy](docs/privacy-policy.md).
+No internet permission, no analytics, no ads, no SDKs, no accounts. The only things stored are a
+yes/no consent flag and your Block it / Ask me first choice. Details: [privacy policy](docs/privacy-policy.md).
 
 ## How it works
 

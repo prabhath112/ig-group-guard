@@ -19,7 +19,7 @@ In Instagram's share sheet, when you select several people, Instagram shows a "S
 
 IG Group Guard uses the Android Accessibility Service API. With your permission it:
 
-- Reads the on-screen window structure of the Instagram app on your phone: view ids, screen positions (bounds) and button labels. It does this in memory, only to find the "Send to new group chat" button, so it can draw an overlay over it.
+- Reads the on-screen window structure of the Instagram app on your phone: view ids, screen positions (bounds) and button labels. It does this in memory, only to find the "Send to new group chat" button, so it can draw an overlay over it. In "Ask me first" mode it also reads the number shown on that button (for example "(3)") to say in its own popup how many people the group would include.
 - Receives window change events from other apps, only to notice that Instagram is no longer on screen so it can remove the overlay.
 
 It keeps nothing after each check.
@@ -33,7 +33,7 @@ It keeps nothing after each check.
 
 ## What is stored on your phone
 
-IG Group Guard stores one value in its local app preferences: whether you agreed to the in-app disclosure (yes or no). Debug log lines, if any, contain only rectangle coordinates (screen positions), no personal data.
+IG Group Guard stores two values in its local app preferences: whether you agreed to the in-app disclosure (yes or no), and your choice of what happens when you tap the covered button ("Block it" or "Ask me first"). Neither is personal data. Debug log lines, if any, contain only rectangle coordinates (screen positions), no personal data.
 
 ## Your consent
 
@@ -55,11 +55,11 @@ IG Group Guard is meant for people aged 13 and older, the same minimum age as In
 
 ## Security
 
-Because IG Group Guard collects no personal data and has no internet access, there is no personal data to transmit or protect on a server. The only stored value is the consent flag, kept in the app's private storage on your phone.
+Because IG Group Guard collects no personal data and has no internet access, there is no personal data to transmit or protect on a server. The only stored values are the consent flag and the Block it / Ask me first choice, kept in the app's private storage on your phone.
 
 ## Deleting your data
 
-Uninstalling IG Group Guard deletes the stored consent flag. No other data exists, so there is nothing else to delete.
+"Withdraw consent and delete data" in the app, or uninstalling IG Group Guard, deletes both stored values. No other data exists, so there is nothing else to delete.
 
 ## Changes to this policy
 

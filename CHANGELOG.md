@@ -6,7 +6,13 @@ as the GitHub Release notes.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-05
+
 ### Added
+- **Ask me first** mode (choose it in the app; **Block it** stays the default). Tapping the
+  covered button opens IG Group Guard's own popup, "Create a group chat?", showing how many people
+  are selected. **Create group** uncovers Instagram's button for the current share screen only;
+  **Cancel** or tapping outside keeps it covered. The next share asks again.
 - Website and README explain the Play Protect block on sideloaded Accessibility apps (India and
   some other countries) and the ways to install.
 
@@ -16,6 +22,7 @@ as the GitHub Release notes.
   pages so the Content-Security-Policy no longer allows inline styles.
 - CI: E2E consent test retries when a system dialog covers the app on a fresh emulator;
   smoke tests retry while a new deployment propagates.
+- The app stores one more local setting (Block it / Ask me first); privacy policy updated.
 
 ## [1.2.0] - 2026-11-05
 

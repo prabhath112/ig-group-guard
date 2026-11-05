@@ -60,6 +60,8 @@ const home = `
 <p>When you share a reel or post to several people, Instagram shows <strong>"Send to new group chat"</strong>
 right under "Send separately". One stray tap puts everyone you selected into one group, without asking.
 IG Group Guard greys that button out so it cannot be tapped. "Send separately" keeps working.</p>
+<p>Prefer a choice? Switch to <strong>Ask me first</strong> in the app: tapping the button then opens a
+popup asking whether you really want a group with everyone selected.</p>
 <p><a class="btn" href="${APK}">Download APK for Android</a></p>
 <p class="muted">${version}. <a href="${SUMS}">SHA-256 checksums</a>. Android 8.0 or newer.</p>
 <h2>Privacy</h2>

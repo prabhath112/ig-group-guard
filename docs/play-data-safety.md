@@ -10,9 +10,9 @@ How to fill in the two Play Console forms for IG Group Guard. Re-check the wordi
 | Data collected | None | Window structure is checked in memory only to find one button and is not kept. |
 | Data shared | None | Nothing is sent off the device. |
 | Is all user data encrypted in transit? | Not applicable | No data is transmitted. |
-| Do you provide a way for users to request that their data be deleted? | Not applicable, no data collected | Only a local yes/no consent flag exists; uninstalling deletes it. |
+| Do you provide a way for users to request that their data be deleted? | Not applicable, no data collected | Only two local settings exist (consent yes/no, Block it / Ask me first); "Withdraw consent and delete data" or uninstalling deletes them. |
 
-Note: the local consent flag never leaves the device, so it is not "collected" in the sense of the form. Review the Console's definitions before answering.
+Note: the two local settings never leave the device, so it is not "collected" in the sense of the form. Review the Console's definitions before answering.
 
 ## Accessibility API declaration
 

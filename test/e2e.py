@@ -314,6 +314,73 @@ def tc12():
     return not hit and ok, f"crash={hit} overlay back={ok}"
 
 
+def set_mode(ask_first):
+    """Pick "Ask me first" or "Block it (default)" on the app's status screen."""
+    label = "Ask me first" if ask_first else "Block it (default)"
+    sh(f"am start -n {APP}/.MainActivity")
+    time.sleep(2)
+    node = next((n for n in dump().iter("node") if n.get("text") == label), None)
+    if node is None:
+        return False
+    tap(*center(bounds(node)))
+    node = next((n for n in dump().iter("node") if n.get("text") == label), None)
+    return node is not None and node.get("checked") == "true"
+
+
+def confirm_popup(nth):
+    """Wait for the nth "confirm shown" log line; return (count, yes_rect, no_rect) or None."""
+    def get():
+        hits = re.findall(r"confirm shown count=(\S+) yes=(-?\d+) (-?\d+) (-?\d+) (-?\d+) "
+                          r"no=(-?\d+) (-?\d+) (-?\d+) (-?\d+)", guard_log())
+        return hits[nth - 1] if len(hits) >= nth else None
+    h = wait_for(get, 8)
+    if not h:
+        return None
+    v = list(h)
+    return v[0], tuple(map(int, v[1:5])), tuple(map(int, v[5:9]))
+
+
+@case("TC13", "Ask me first: Cancel keeps it covered; Create group unlocks it for this sheet only")
+def tc13():
+    if not set_mode(True):
+        return False, "could not select 'Ask me first'"
+    try:
+        start_fixture("id")
+        tree = dump()  # all dumps before "Create group": on Android 8 a dump re-binds the service
+        toggle = find_by_id(tree, IG + ":id/fixture_toggle")
+        b, got, ok = overlay_matches_button()
+        if not ok:
+            return False, f"no overlay in ask mode: button={b} overlay={got}"
+        steps = []
+        tap(*center(b))                           # 1. tap the banner -> our popup
+        p1 = confirm_popup(1)
+        if not p1:
+            return False, "popup did not open"
+        steps.append(f"popup count={p1[0]}")
+        tap(*center(p1[2]))                       # 2. Cancel
+        cancelled = bool(wait_for(lambda: "confirm no" in guard_log()))
+        still_blocked = "group" not in fixture_clicks()
+        steps.append(f"cancel={cancelled} blocked={still_blocked}")
+        tap(*center(b))                           # 3. tap again -> popup again -> Create group
+        p2 = confirm_popup(2)
+        if not p2:
+            return False, "popup did not reopen; " + ", ".join(steps)
+        tap(*center(p2[1]))
+        unlocked = bool(wait_for(lambda: "confirm yes" in guard_log() and overlay_state() == "hidden"))
+        tap(*center(b))                           # 4. Instagram's own button now gets the tap
+        reached = bool(wait_for(lambda: "group" in fixture_clicks()))
+        steps.append(f"unlocked={unlocked} tap reached app={reached}")
+        tap(*center(toggle))                      # 5. sheet closes ...
+        reset = bool(wait_for(lambda: "confirm reset" in guard_log()))
+        tap(*center(toggle))                      # ... and opens again: covered again
+        back = bool(wait_for(lambda: isinstance(overlay_state(), tuple), 8))
+        steps.append(f"reset={reset} covered again={back}")
+        ok = (p1[0] == "3" and cancelled and still_blocked and unlocked and reached and reset and back)
+        return ok, ", ".join(steps)
+    finally:
+        set_mode(False)
+
+
 def overlay_window_frame():
     """Frame of our overlay window from the window manager, or None. Needs no uiautomator."""
     out = sh("dumpsys window windows")
@@ -400,7 +467,7 @@ def main():
         for c in (tc01, tc00, tc11):
             c()
         start_fixture("id")
-        cases = [tc02, tc03, tc04, tc05, tc06, tc07, tc08, tc09, tc12, tc10]
+        cases = [tc02, tc03, tc04, tc05, tc06, tc07, tc08, tc09, tc12, tc13, tc10]
 
     for c in cases:
         c()

@@ -11,7 +11,7 @@ Do not open a public issue for a vulnerability. You will get a reply within 7 da
 ## Scope
 
 - The Android app (`app/`): the accessibility service only reads Instagram's share screen
-  layout on the device, has no INTERNET permission and stores only a consent flag.
+  layout on the device, has no INTERNET permission and stores only two local settings (consent, Block/Ask choice).
 - The website (`site/`, deployed to https://ig-group-guard.vercel.app): static pages, no
   scripts, strict Content-Security-Policy.
 - The build and release pipeline (`.github/`): actions pinned by commit SHA (enforced),
