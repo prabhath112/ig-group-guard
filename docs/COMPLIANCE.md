@@ -40,7 +40,7 @@ Drafts for the developer to review. This is a checklist, not legal advice, and d
 | Data safety form | Action needed by developer | Answer per `docs/play-data-safety.md` (no data collected or shared). |
 | Content rating questionnaire | Action needed by developer | Complete in Play Console; no user content, ads, or purchases. |
 | Target audience | Action needed by developer | Select 13 and older in Play Console; not designed for children. |
-| Privacy policy URL | Done | https://ig-group-guard.vercel.app/privacy-policy (deployed by `.github/workflows/site.yml`). Enter it in Play Console. |
+| Privacy policy URL | Done | https://ig-group-guard.vercel.app/privacy-policy (built by Vercel's GitHub integration on every push to main; mirror on GitHub Pages). Enter it in Play Console. |
 | Contact email | Action needed by developer | Docs use prabhath.kumar2000@gmail.com; enter the same address in Play Console. |
 | Play App Signing + upload key | Action needed by developer | Upload key created at `%USERPROFILE%\.android\ig-group-guard-upload.jks` (password in `ig-group-guard-upload.properties` next to it, SHA-256 31:DA:8A:...:64:61). Back both up somewhere safe, never commit them, and enroll in Play App Signing on first upload. |
 
