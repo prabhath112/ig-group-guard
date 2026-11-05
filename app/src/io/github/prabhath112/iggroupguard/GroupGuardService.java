@@ -16,15 +16,23 @@ import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
+import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Covers Instagram's "Send to new group chat (N)" share-sheet button with a grey,
  * tap-swallowing overlay. "Send separately" stays usable.
+ *
+ * Two modes (MainActivity setting): "Block it" (default) swallows the tap; "Ask me first" opens
+ * our own confirmation, and "Create group" uncovers Instagram's button for the current share sheet
+ * only. The user then taps Instagram's button themselves; the app never taps it for them.
  *
  * Smoothness: a separate window cannot follow another app's animation without visible steps
  * (measured on CPH2707: ~300 ms sheet slide, button position readable only every 30-40 ms).
@@ -66,6 +74,10 @@ public class GroupGuardService extends AccessibilityService {
     // the service starts measures it; every later open is instant.
     private Rect home;
 
+    private FrameLayout confirm;      // our own "Create a group chat?" popup (Ask me first mode)
+    private boolean allowedThisSheet; // user said "Create group": leave the button alone until the sheet closes
+    private static final Pattern COUNT = Pattern.compile("\\((\\d+)\\)"); // "... (3)"
+
     @Override
     protected void onServiceConnected() {
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
@@ -85,6 +97,13 @@ public class GroupGuardService extends AccessibilityService {
         Rect button = MainActivity.hasConsent(this) ? findGroupButton() : null;
         if (button == null) {
             hide();
+            return;
+        }
+        if (allowedThisSheet) {
+            // Confirmed for this sheet: keep Instagram's button uncovered; keep checking so the
+            // permission ends as soon as the sheet (and the button) goes away.
+            removeWindow();
+            handler.postDelayed(recheck, RECHECK_MS);
             return;
         }
         long now = SystemClock.uptimeMillis();
@@ -119,6 +138,8 @@ public class GroupGuardService extends AccessibilityService {
         int bannerHeight = towardsHome ? home.height() : button.height();
         place(bounds, bannerHeight);
         if (banner == null) return; // window could not be added (service shutting down)
+        String label = getString(MainActivity.askFirst(this) ? R.string.banner_ask : R.string.banner_block);
+        if (!label.contentEquals(banner.getText())) banner.setText(label);
 
         if (towardsHome) {
             showNow(); // known final spot: appear at once, standing still; the button slides in under it
@@ -157,26 +178,47 @@ public class GroupGuardService extends AccessibilityService {
 
     /** Bounds of the group button in any on-screen Instagram window, or null. */
     private Rect findGroupButton() {
+        AccessibilityNodeInfo node = findGroupNode();
+        if (node == null) return null;
+        Rect r = new Rect();
+        node.getBoundsInScreen(r);
+        return r.isEmpty() ? null : r;
+    }
+
+    private AccessibilityNodeInfo findGroupNode() {
         List<AccessibilityWindowInfo> windows = getWindows();
         if (windows == null || windows.isEmpty()) return findIn(getRootInActiveWindow());
         for (AccessibilityWindowInfo w : windows) {
-            Rect r = findIn(w.getRoot());
-            if (r != null) return r;
+            AccessibilityNodeInfo n = findIn(w.getRoot());
+            if (n != null) return n;
         }
         return null;
     }
 
-    private static Rect findIn(AccessibilityNodeInfo root) {
+    private static AccessibilityNodeInfo findIn(AccessibilityNodeInfo root) {
         if (root == null || !INSTAGRAM.contentEquals(root.getPackageName())) return null;
         AccessibilityNodeInfo node = first(root.findAccessibilityNodeInfosByViewId(GROUP_BUTTON_ID));
         if (node == null) {
             node = first(root.findAccessibilityNodeInfosByText(GROUP_BUTTON_TEXT));
             while (node != null && !node.isClickable()) node = node.getParent();
         }
-        if (node == null || !node.isVisibleToUser()) return null;
-        Rect r = new Rect();
-        node.getBoundsInScreen(r);
-        return r.isEmpty() ? null : r;
+        return node != null && node.isVisibleToUser() ? node : null;
+    }
+
+    /** Number of selected people from the button label "Send to new group chat (N)", or -1. */
+    private int selectedCount() {
+        AccessibilityNodeInfo node = findGroupNode();
+        if (node == null) return -1;
+        StringBuilder text = new StringBuilder();
+        collectText(node, text, 0);
+        Matcher m = COUNT.matcher(text);
+        return m.find() ? Integer.parseInt(m.group(1)) : -1;
+    }
+
+    private static void collectText(AccessibilityNodeInfo n, StringBuilder out, int depth) {
+        if (n == null || depth > 3) return;
+        if (n.getText() != null) out.append(n.getText()).append(' ');
+        for (int i = 0; i < n.getChildCount(); i++) collectText(n.getChild(i), out, depth + 1);
     }
 
     private static AccessibilityNodeInfo first(List<AccessibilityNodeInfo> nodes) {
@@ -201,7 +243,7 @@ public class GroupGuardService extends AccessibilityService {
 
         if (window == null) {
             banner = new TextView(this);
-            banner.setText("Group send disabled");
+            banner.setText(MainActivity.askFirst(this) ? R.string.banner_ask : R.string.banner_block);
             banner.setTextColor(0xFFC4C4C4); // ~6:1 on #3A3A3A (WCAG AA)
             banner.setGravity(Gravity.CENTER);
             banner.setBackgroundColor(0xFF3A3A3A); // opaque, or Instagram's label bleeds through
@@ -214,9 +256,12 @@ public class GroupGuardService extends AccessibilityService {
                 public boolean onTouch(View v, MotionEvent e) {
                     if (e.getAction() == MotionEvent.ACTION_UP) {
                         Log.i(TAG, "blocked tap");
-                        Toast.makeText(GroupGuardService.this,
-                                "Blocked: this would create a group with everyone selected. Use \"Send separately\".",
-                                Toast.LENGTH_SHORT).show();
+                        if (MainActivity.askFirst(GroupGuardService.this)) {
+                            showConfirm(selectedCount());
+                        } else {
+                            Toast.makeText(GroupGuardService.this, R.string.toast_blocked,
+                                    Toast.LENGTH_SHORT).show();
+                        }
                     }
                     return true; // swallow every tap anywhere in the window
                 }
@@ -249,6 +294,16 @@ public class GroupGuardService extends AccessibilityService {
         handler.removeCallbacks(recheck);
         choreographer.removeFrameCallback(follow);
         lastButton.setEmpty();
+        dismissConfirm();
+        if (allowedThisSheet) {
+            allowedThisSheet = false; // the sheet closed: the next share asks again
+            Log.i(TAG, "confirm reset");
+        }
+        removeWindow();
+    }
+
+    /** Removes the banner window only (keeps the "allowed for this sheet" state). */
+    private void removeWindow() {
         if (window == null) return;
         try {
             wm.removeView(window);
@@ -260,6 +315,109 @@ public class GroupGuardService extends AccessibilityService {
         fading = false;
         shown.setEmpty();
         Log.i(TAG, "overlay hidden");
+    }
+
+    // ---- "Ask me first": our own confirmation popup ----
+
+    private void showConfirm(int count) {
+        if (confirm != null) return;
+        float dp = getResources().getDisplayMetrics().density;
+        int pad = Math.round(20 * dp);
+
+        TextView title = new TextView(this);
+        title.setText(R.string.confirm_title);
+        title.setTextSize(20);
+        title.setTextColor(0xFF1B1F23);
+        TextView body = new TextView(this);
+        body.setText(count > 0 ? getString(R.string.confirm_body_count, count) : getString(R.string.confirm_body));
+        body.setTextSize(16);
+        body.setTextColor(0xFF3A3F45);
+        body.setPadding(0, Math.round(8 * dp), 0, Math.round(16 * dp));
+
+        final Button no = new Button(this);
+        no.setText(R.string.confirm_no);
+        no.setAllCaps(false);
+        final Button yes = new Button(this);
+        yes.setText(R.string.confirm_yes);
+        yes.setAllCaps(false);
+        no.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Log.i(TAG, "confirm no");
+                dismissConfirm();
+            }
+        });
+        yes.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Log.i(TAG, "confirm yes");
+                dismissConfirm();
+                allowedThisSheet = true;
+                removeWindow(); // Instagram's own button is now visible and tappable
+                Toast.makeText(GroupGuardService.this, R.string.toast_allowed, Toast.LENGTH_SHORT).show();
+            }
+        });
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setGravity(Gravity.END);
+        buttons.addView(no);
+        buttons.addView(yes);
+
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackgroundColor(0xFFFFFFFF);
+        card.setPadding(pad, pad, pad, Math.round(12 * dp));
+        card.setClickable(true); // taps on the card itself do not count as "outside"
+        card.addView(title);
+        card.addView(body);
+        card.addView(buttons);
+
+        confirm = new FrameLayout(this);
+        confirm.setBackgroundColor(0x99000000); // dim Instagram behind the popup
+        confirm.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { // tap outside the card = cancel
+                Log.i(TAG, "confirm no (outside)");
+                dismissConfirm();
+            }
+        });
+        FrameLayout.LayoutParams cardLp = new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER);
+        cardLp.leftMargin = cardLp.rightMargin = Math.round(28 * dp);
+        confirm.addView(card, cardLp);
+
+        WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT);
+        try {
+            wm.addView(confirm, lp);
+        } catch (WindowManager.BadTokenException e) {
+            confirm = null;
+            return;
+        }
+        final int c = count;
+        // Logged for test/e2e.py, which taps the buttons by these screen bounds.
+        confirm.post(new Runnable() {
+            @Override public void run() {
+                Log.i(TAG, "confirm shown count=" + (c > 0 ? String.valueOf(c) : "?")
+                        + " yes=" + screenRect(yes).flattenToString()
+                        + " no=" + screenRect(no).flattenToString());
+            }
+        });
+    }
+
+    private static Rect screenRect(View v) {
+        int[] xy = new int[2];
+        v.getLocationOnScreen(xy);
+        return new Rect(xy[0], xy[1], xy[0] + v.getWidth(), xy[1] + v.getHeight());
+    }
+
+    private void dismissConfirm() {
+        if (confirm == null) return;
+        try {
+            wm.removeView(confirm);
+        } catch (IllegalArgumentException e) {
+            // already detached
+        }
+        confirm = null;
     }
 
     @Override

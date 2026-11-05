@@ -11,6 +11,8 @@ import android.view.View;
 import android.view.accessibility.AccessibilityManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
@@ -18,23 +20,34 @@ import android.widget.TextView;
  * Two screens in one activity:
  * 1. Prominent disclosure + consent (Google Play Accessibility API policy). Shown on every open
  *    until the user taps Agree. The service does nothing without consent.
- * 2. Status / setup screen with privacy policy link and a way to withdraw consent.
+ * 2. Status / setup screen: what happens on a tap (Block it / Ask me first), privacy policy link
+ *    and a way to withdraw consent.
  */
 public class MainActivity extends Activity {
 
     static final String PRIVACY_URL = "https://ig-group-guard.vercel.app/privacy-policy";
     private static final String PREFS = "groupgate";
     private static final String KEY_CONSENT = "consent";
+    private static final String KEY_ASK_FIRST = "ask_first"; // false (default) = Block it
 
     static boolean hasConsent(Context c) {
         return c.getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(KEY_CONSENT, false);
+    }
+
+    /** "Ask me first" chosen; default is "Block it". */
+    static boolean askFirst(Context c) {
+        return c.getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(KEY_ASK_FIRST, false);
+    }
+
+    private void setAskFirst(boolean value) {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(KEY_ASK_FIRST, value).apply();
     }
 
     private void setConsent(boolean value) {
         if (value) {
             getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(KEY_CONSENT, true).apply();
         } else {
-            // "Withdraw and delete": the consent flag is the only thing IG Group Guard ever stores.
+            // "Withdraw and delete": the consent flag and the Block/Ask choice are all IG Group Guard stores.
             getSharedPreferences(PREFS, MODE_PRIVATE).edit().clear().apply();
         }
     }
@@ -69,6 +82,7 @@ public class MainActivity extends Activity {
         box.addView(text(running ? R.string.status_on : R.string.status_off, 22));
         if (!running) box.addView(text(R.string.status_off_hint, 16));
         box.addView(text(R.string.what_it_does, 16));
+        box.addView(modeChooser());
         box.addView(text(R.string.how_to_enable, 16));
         box.addView(button(R.string.open_settings, new View.OnClickListener() {
             @Override public void onClick(View v) {
@@ -97,6 +111,34 @@ public class MainActivity extends Activity {
             if (getPackageName().equals(info.getResolveInfo().serviceInfo.packageName)) return true;
         }
         return false;
+    }
+
+    /** "When I tap Send to new group chat": Block it (default) / Ask me first. */
+    private View modeChooser() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        TextView title = text(R.string.mode_title, 18);
+        title.setPadding(0, 0, 0, 0);
+        box.addView(title);
+        RadioGroup group = new RadioGroup(this);
+        RadioButton block = new RadioButton(this);
+        block.setId(View.generateViewId());
+        block.setText(R.string.mode_block);
+        RadioButton ask = new RadioButton(this);
+        ask.setId(View.generateViewId());
+        ask.setText(R.string.mode_ask);
+        group.addView(block);
+        group.addView(ask);
+        group.check(askFirst(this) ? ask.getId() : block.getId());
+        final int askId = ask.getId();
+        group.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+            @Override public void onCheckedChanged(RadioGroup g, int checkedId) {
+                setAskFirst(checkedId == askId);
+            }
+        });
+        box.addView(group);
+        box.addView(text(R.string.mode_help, 14));
+        return box;
     }
 
     // ---- tiny view helpers (no layout XML needed for two plain screens) ----

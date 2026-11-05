@@ -16,10 +16,27 @@
     <string name="status_on">IG Group Guard is ON</string>
     <string name="status_off">IG Group Guard is OFF</string>
     <string name="status_off_hint">If you already turned it on, Android may have stopped it (force stop or battery saver). Open Accessibility settings, switch IG Group Guard off and on again.</string>
-    <string name="what_it_does">When you share a reel or post to several people, the \"Send to new group chat\" button is greyed out and cannot be tapped. \"Send separately\" keeps working.</string>
+    <string name="what_it_does">When you share a reel or post to several people, the \"Send to new group chat\" button is covered so a group is never created by accident. \"Send separately\" keeps working.</string>
     <string name="how_to_enable">To turn it on: Settings &gt; Accessibility &gt; Installed apps (or Downloaded apps) &gt; IG Group Guard &gt; On.\n\nAndroid 13 or newer: if the switch is greyed out, open Settings &gt; Apps &gt; IG Group Guard, tap the menu (three dots) and choose \"Allow restricted settings\", then try again.\n\nSome phones stop background services to save battery. If the button comes back, set IG Group Guard\'s battery use to Unrestricted.</string>
     <string name="open_settings">Open Accessibility settings</string>
     <string name="privacy_policy">Privacy policy</string>
     <string name="withdraw">Withdraw consent and delete data</string>
+    <!-- v2: what happens when the covered button is tapped -->
+    <string name="mode_title">When I tap \"Send to new group chat\"</string>
+    <string name="mode_block">Block it (default)</string>
+    <string name="mode_ask">Ask me first</string>
+    <string name="mode_help">Ask me first: a popup asks whether you really want to create a group. If you choose Create group, the button works normally until you close that share screen.</string>
+
+    <!-- Overlay banner, toasts and the confirmation popup -->
+    <string name="banner_block">Group send disabled</string>
+    <string name="banner_ask">Tap to confirm group</string>
+    <string name="toast_blocked">Blocked: this would create a group with everyone selected. Use \"Send separately\".</string>
+    <string name="toast_allowed">Unlocked. Tap \"Send to new group chat\" to create the group.</string>
+    <string name="confirm_title">Create a group chat?</string>
+    <string name="confirm_body_count">This puts all %1$d people you selected into one new group, and they can see each other. To message each person on their own, choose Cancel and use \"Send separately\".</string>
+    <string name="confirm_body">This puts everyone you selected into one new group, and they can see each other. To message each person on their own, choose Cancel and use \"Send separately\".</string>
+    <string name="confirm_no">Cancel</string>
+    <string name="confirm_yes">Create group</string>
+
     <string name="not_affiliated">IG Group Guard is an independent app. It is not affiliated with, endorsed by, or sponsored by Instagram or Meta. Instagram is a trademark of its owner.</string>
 </resources>
