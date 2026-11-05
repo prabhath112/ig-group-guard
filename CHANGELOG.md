@@ -6,6 +6,10 @@ as the GitHub Release notes.
 
 ## [Unreleased]
 
+### Added
+- Website and README explain the Play Protect block on sideloaded Accessibility apps (India and
+  some other countries) and the ways to install.
+
 ### Changed
 - Release files carry the version: `ig-group-guard-release-vX.Y.Z.apk` and `.aab`.
 - Website built by Vercel's GitHub integration; mirror on GitHub Pages; CSS moved out of the

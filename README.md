@@ -45,6 +45,14 @@ yes/no consent flag. Details: [privacy policy](docs/privacy-policy.md).
 5. **Xiaomi / Oppo / OnePlus / Realme / Vivo / Samsung:** set battery use to Unrestricted (and
    allow Autostart where offered), or the system may stop the service.
 
+**"Blocked by Play Protect"?** In India and some other countries, Google Play Protect's
+[enhanced fraud protection](https://blog.google/intl/en-in/products/launching-enhanced-fraud-protection-pilot-in-india/)
+blocks apps that declare an Accessibility service when they are installed from a browser, chat app
+or file manager. IG Group Guard cannot work without that service, so the APK download is blocked
+there. Installs from Google Play are not affected (the Play version is not published yet); from a
+computer, `adb install ig-group-guard-release-vX.Y.Z.apk` works. Turning Play Protect off is not
+recommended.
+
 ## Build (no Gradle)
 
 Needs Android SDK platform 36, build-tools 36.0.0, JDK 17+, Python 3, and
