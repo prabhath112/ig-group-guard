@@ -16,7 +16,8 @@ BROWSERS = [
     "google-chrome", "chromium",
 ]
 
-svg = open(os.path.join(HERE, "logo.svg"), encoding="utf-8").read()
+with open(os.path.join(HERE, "logo.svg"), encoding="utf-8") as f:
+    svg = f.read()
 # Play wants a full-bleed square icon; it rounds the corners itself.
 square = svg.replace('rx="24" ', "").replace('width="512" height="512"', 'width="512" height="512" style="display:block"')
 inline = svg.replace('width="512" height="512"', 'width="300" height="300"')

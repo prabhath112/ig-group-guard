@@ -1,8 +1,8 @@
 // Builds the static site into site/dist from the Markdown in docs/.
 // Pages: / (landing + latest APK download), /privacy-policy, /terms.
-// The latest release is read from the GitHub API at build time, so redeploying after a release
-// updates the version shown. Downloads use GitHub's /releases/latest/download/ URL, which always
-// points at the newest release.
+// The version shown comes from app/AndroidManifest.xml in this checkout (no network access at
+// build time). The site is redeployed by the release workflow, so it matches the newest release.
+// Downloads use GitHub's /releases/latest/download/ URL, which always points at the newest one.
 import { readFile, writeFile, mkdir, copyFile, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,17 +17,11 @@ const SUMS = `https://github.com/${REPO}/releases/latest/download/SHA256SUMS`;
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-async function latestRelease() {
-  const headers = { "User-Agent": "ig-group-guard-site", Accept: "application/vnd.github+json" };
-  if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  try {
-    const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers });
-    if (!r.ok) return null; // 404 before the first release
-    const j = await r.json();
-    return { tag: j.tag_name, date: (j.published_at || "").slice(0, 10), url: j.html_url };
-  } catch {
-    return null; // offline build: page still renders, without a version
-  }
+async function appVersion() {
+  const manifest = await readFile(join(ROOT, "app", "AndroidManifest.xml"), "utf8");
+  const m = manifest.match(/android:versionName="(\d+\.\d+\.\d+)"/);
+  if (!m) throw new Error("versionName not found in app/AndroidManifest.xml");
+  return m[1];
 }
 
 const page = (title, body) => `<!doctype html>
@@ -69,10 +63,8 @@ async function md(file) {
   return marked.parse(raw.replace(/^---\n[\s\S]*?\n---\n/, "")); // drop Jekyll front matter
 }
 
-const rel = await latestRelease();
-const version = rel
-  ? `Latest version <a href="${esc(rel.url)}">${esc(rel.tag)}</a> (${esc(rel.date)})`
-  : "No release published yet.";
+const ver = await appVersion();
+const version = `Version <a href="https://github.com/${REPO}/releases/tag/v${ver}">${ver}</a>`;
 
 const home = `
 <header><img src="/logo.svg" alt="IG Group Guard logo: three people behind a no sign"><h1>IG Group Guard</h1></header>
@@ -98,4 +90,4 @@ await writeFile(join(OUT, "index.html"), page("IG Group Guard", home));
 await writeFile(join(OUT, "privacy-policy.html"), page("IG Group Guard: Privacy policy", await md("privacy-policy.md")));
 await writeFile(join(OUT, "terms.html"), page("IG Group Guard: Terms of service", await md("terms-of-service.md")));
 await copyFile(join(ROOT, "assets", "logo.svg"), join(OUT, "logo.svg"));
-console.log(`site built: ${rel ? rel.tag : "no release yet"}`);
+console.log(`site built: v${ver}`);

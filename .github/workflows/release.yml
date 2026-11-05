@@ -60,7 +60,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes \
+          v="${GITHUB_REF_NAME#v}"
+          # Section "## [X.Y.Z] ..." of CHANGELOG.md up to the next "## " heading (plain-text match).
+          awk -v h="## [$v]" 'index($0, h) == 1 {on = 1; next} /^## / {on = 0} on' CHANGELOG.md > build/NOTES.md
+          [ -s build/NOTES.md ] || { echo "::error::no CHANGELOG.md section for $v"; exit 1; }
+          gh release create "$GITHUB_REF_NAME" --verify-tag --notes-file build/NOTES.md \
             --title "IG Group Guard $GITHUB_REF_NAME" \
             build/ig-group-guard-release.apk build/ig-group-guard-release.aab build/SHA256SUMS
 
