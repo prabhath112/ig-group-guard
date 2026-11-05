@@ -18,10 +18,10 @@ jobs:
     name: Build, sign, publish
     runs-on: ubuntu-24.04
     environment: release        # holds the upload key; only tag refs v* may use it
-    permissions:
+    permissions:                # least privilege for this job only:
       contents: write           # create the release
       id-token: write           # build provenance attestation
-      attestations: write
+      attestations: write       # store the provenance attestation
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -73,5 +73,6 @@ jobs:
     needs: release
     uses: ./.github/workflows/site.yml
     permissions:
-      contents: read
-    secrets: inherit
+      contents: read # the site job only checks out the repo
+    # No secrets passed on purpose: the site job reads VERCEL_TOKEN from its own
+    # `vercel-production` environment, so the signing key never reaches it.

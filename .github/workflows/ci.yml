@@ -29,6 +29,30 @@ jobs:
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           "$(go env GOPATH)/bin/actionlint" -color
+      - name: Workflow security audit (zizmor, strictest persona)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pipx run zizmor==1.32.0 --persona=auditor --format=github .github
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # scan every commit, not only the tip
+      - name: gitleaks 8.30.1 (checksum verified)
+        run: |
+          set -euo pipefail
+          v=8.30.1; base="https://github.com/gitleaks/gitleaks/releases/download/v$v"
+          cd "$RUNNER_TEMP"
+          curl -fsSLO "$base/gitleaks_${v}_linux_x64.tar.gz"
+          curl -fsSLO "$base/gitleaks_${v}_checksums.txt"
+          grep " gitleaks_${v}_linux_x64.tar.gz\$" "gitleaks_${v}_checksums.txt" | sha256sum -c -
+          tar -xzf "gitleaks_${v}_linux_x64.tar.gz" gitleaks
+          ./gitleaks git "$GITHUB_WORKSPACE" --no-banner --redact --exit-code 1
 
   build:
     name: Build and verify
