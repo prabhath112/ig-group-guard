@@ -81,6 +81,17 @@ python -I test/e2e.py -s <adb serial>
 
 Results and manual checks: [docs/TEST_CASES.md](docs/TEST_CASES.md).
 
+## Deployment
+
+| What | Where | How |
+|------|-------|-----|
+| Website | https://ig-group-guard.vercel.app | Vercel's GitHub integration builds every push to `main` (`vercel.json`); PRs get preview deployments. No Vercel token is stored in this repo. |
+| Website mirror | https://prabhath112.github.io/ig-group-guard/ | `.github/workflows/site.yml` (GitHub Pages) on every push to `main` |
+| App release | GitHub Releases | push tag `vX.Y.Z` matching `versionName`; `.github/workflows/release.yml` builds, signs (upload key in the protected `release` environment, owner approval), attests provenance and publishes APK, AAB and `SHA256SUMS` with notes from `CHANGELOG.md` |
+
+The site shows the version from `app/AndroidManifest.xml` and links to
+`/releases/latest/download/`, so a new release needs no site redeploy.
+
 ## Publishing
 
 - [docs/COMPLIANCE.md](docs/COMPLIANCE.md): policy checklist and remaining developer actions

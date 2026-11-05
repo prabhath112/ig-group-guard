@@ -4,6 +4,14 @@ All notable changes to IG Group Guard. Versions match `versionName` in `app/Andr
 and the `vX.Y.Z` release tags. The release workflow publishes the section for the tagged version
 as the GitHub Release notes.
 
+## [Unreleased]
+
+### Changed
+- Website built by Vercel's GitHub integration; mirror on GitHub Pages; CSS moved out of the
+  pages so the Content-Security-Policy no longer allows inline styles.
+- CI: E2E consent test retries when a system dialog covers the app on a fresh emulator;
+  smoke tests retry while a new deployment propagates.
+
 ## [1.2.0] - 2026-11-05
 
 ### Added

@@ -1,33 +1,25 @@
-name: Site
+name: Pages
 
-# Deploys site/ (landing page with APK download, privacy policy, terms) to Vercel production.
-# Runs on main when the site or docs change, and after every release (called by release.yml),
-# so the page always shows the newest version.
+# Deploys site/ (landing page with APK download, privacy policy, terms) to GitHub Pages:
+# https://prabhath112.github.io/ig-group-guard/
+# The primary site https://ig-group-guard.vercel.app is built by Vercel's GitHub integration on
+# every push to main (no Vercel token is stored in this repository). Both serve the same build.
 on:
   push:
     branches: [main]
-    paths: ['docs/**', 'site/**', 'assets/logo.svg', 'vercel.json', '.github/workflows/site.yml']
-  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: site
+  group: pages
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Deploy to Vercel
+  build:
+    name: Build site
     runs-on: ubuntu-24.04
-    environment:
-      name: vercel-production
-      url: https://ig-group-guard.vercel.app
-    env:
-      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -35,12 +27,32 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
-      - run: npx --yes vercel@65.11.0 pull --yes --environment=production --token="$VERCEL_TOKEN"
-      - run: npx --yes vercel@65.11.0 build --prod --token="$VERCEL_TOKEN"
-      - run: npx --yes vercel@65.11.0 deploy --prebuilt --prod --token="$VERCEL_TOKEN"
-      - name: Smoke test
+      - run: npm ci --prefix site --ignore-scripts
+      - run: node site/build.mjs
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site/dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write     # publish the Pages artifact
+      id-token: write  # OIDC token the Pages deployment requires
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      - name: Smoke test (retries while Pages propagates)
+        env:
+          URL: ${{ steps.deployment.outputs.page_url }}
         run: |
           set -euo pipefail
-          for p in / /privacy-policy /terms; do
-            curl -fsS -o /dev/null -w "%{http_code} $p\n" "https://ig-group-guard.vercel.app$p"
+          for p in "" privacy-policy terms style.css; do
+            curl -fsS --retry 12 --retry-delay 10 --retry-all-errors -o /dev/null \
+              -w "%{http_code} /$p\n" "${URL}${p}"
           done
