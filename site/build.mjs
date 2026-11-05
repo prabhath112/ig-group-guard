@@ -1,5 +1,6 @@
 // Builds the static site into site/dist from the Markdown in docs/.
-// Pages: / (landing + latest APK download), /privacy-policy, /terms.
+// Pages: / (landing + latest APK download), /privacy-policy, /terms. Links are relative so the
+// same output works on Vercel (root) and GitHub Pages (/ig-group-guard/). No inline CSS or JS.
 // The version shown comes from app/AndroidManifest.xml in this checkout (no network access at
 // build time). The site is redeployed by the release workflow, so it matches the newest release.
 // Downloads use GitHub's /releases/latest/download/ URL, which always points at the newest one.
@@ -31,26 +32,12 @@ const page = (title, body) => `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
 <meta name="description" content="IG Group Guard: stops accidental group chats when sharing to several people on Instagram. Not affiliated with Instagram or Meta.">
-<link rel="icon" href="/logo.svg" type="image/svg+xml">
-<style>
-  :root { color-scheme: light dark; --fg:#1b1f23; --bg:#ffffff; --muted:#57606a; --accent:#0F766E; }
-  @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --muted:#9da7b3; --accent:#2dd4bf; } }
-  body { margin:0; font:16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color:var(--fg); background:var(--bg); }
-  main { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
-  header { display:flex; align-items:center; gap:14px; }
-  header img { width:56px; height:56px; border-radius:12px; }
-  a { color: var(--accent); }
-  .btn { display:inline-block; padding:12px 20px; border-radius:10px; background:#0F766E; color:#fff; text-decoration:none; font-weight:600; }
-  .btn:focus-visible, a:focus-visible { outline: 3px solid #FBBF24; outline-offset: 2px; }
-  .muted { color: var(--muted); font-size: 14px; }
-  table { border-collapse: collapse; width: 100%; } td, th { border: 1px solid #8884; padding: 6px 8px; text-align:left; }
-  nav a { margin-right: 16px; }
-  footer { margin-top: 48px; }
-</style>
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <main>
-<nav aria-label="Site"><a href="/">Home</a><a href="/privacy-policy">Privacy policy</a><a href="/terms">Terms</a><a href="https://github.com/${REPO}">Source</a></nav>
+<nav aria-label="Site"><a href="./">Home</a><a href="privacy-policy">Privacy policy</a><a href="terms">Terms</a><a href="https://github.com/${REPO}">Source</a></nav>
 ${body}
 <footer class="muted">IG Group Guard is an independent app. It is not affiliated with, endorsed by, or sponsored by Instagram or Meta. Instagram is a trademark of its owner.</footer>
 </main>
@@ -67,7 +54,7 @@ const ver = await appVersion();
 const version = `Version <a href="https://github.com/${REPO}/releases/tag/v${ver}">${ver}</a>`;
 
 const home = `
-<header><img src="/logo.svg" alt="IG Group Guard logo: three people behind a no sign"><h1>IG Group Guard</h1></header>
+<header><img src="logo.svg" alt="IG Group Guard logo: three people behind a no sign"><h1>IG Group Guard</h1></header>
 <p>When you share a reel or post to several people, Instagram shows <strong>"Send to new group chat"</strong>
 right under "Send separately". One stray tap puts everyone you selected into one group, without asking.
 IG Group Guard greys that button out so it cannot be tapped. "Send separately" keeps working.</p>
@@ -75,7 +62,7 @@ IG Group Guard greys that button out so it cannot be tapped. "Send separately" k
 <p class="muted">${version}. <a href="${SUMS}">SHA-256 checksums</a>. Android 8.0 or newer.</p>
 <h2>Privacy</h2>
 <p>No internet permission, no analytics, no ads, no accounts. Nothing leaves your phone.
-Read the <a href="/privacy-policy">privacy policy</a>.</p>
+Read the <a href="privacy-policy">privacy policy</a>.</p>
 <h2>Install</h2>
 <ol>
 <li>Download and open the APK, allow installing from your browser if Android asks.</li>
@@ -90,4 +77,5 @@ await writeFile(join(OUT, "index.html"), page("IG Group Guard", home));
 await writeFile(join(OUT, "privacy-policy.html"), page("IG Group Guard: Privacy policy", await md("privacy-policy.md")));
 await writeFile(join(OUT, "terms.html"), page("IG Group Guard: Terms of service", await md("terms-of-service.md")));
 await copyFile(join(ROOT, "assets", "logo.svg"), join(OUT, "logo.svg"));
+await copyFile(join(ROOT, "site", "style.css"), join(OUT, "style.css"));
 console.log(`site built: v${ver}`);

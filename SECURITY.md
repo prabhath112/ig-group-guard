@@ -14,8 +14,9 @@ Do not open a public issue for a vulnerability. You will get a reply within 7 da
   layout on the device, has no INTERNET permission and stores only a consent flag.
 - The website (`site/`, deployed to https://ig-group-guard.vercel.app): static pages, no
   scripts, strict Content-Security-Policy.
-- The build and release pipeline (`.github/`): actions pinned by commit SHA, least-privilege
-  tokens, signing key only in the protected `release` environment.
+- The build and release pipeline (`.github/`): actions pinned by commit SHA (enforced),
+  least-privilege tokens, signing key only in the protected `release` environment, every PR
+  checked by CodeQL, zizmor, gitleaks, actionlint and shellcheck.
 
 ## Supported versions
 

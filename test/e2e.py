@@ -279,14 +279,24 @@ def tc00():
 
 @case("TC11", "consent flow: disclosure shown, Agree enables the service")
 def tc11():
-    sh(f"am start -n {APP}/.MainActivity")
-    time.sleep(2)
-    tree = dump()
-    texts = [n.get("text") or "" for n in tree.iter("node")]
-    shown = any("Accessibility Service API" in t for t in texts)
-    agree = next((bounds(n) for n in tree.iter("node") if n.get("text") == "Agree"), None)
+    # A freshly booted CI emulator can show a system dialog over the app for a few seconds
+    # (seen once on API 35 in GitHub Actions), so relaunch and look again before giving up.
+    shown = agree = None
+    texts = []
+    for _ in range(5):
+        sh(f"am start -n {APP}/.MainActivity")
+        time.sleep(2)
+        tree = dump()
+        texts = [n.get("text") or "" for n in tree.iter("node")]
+        shown = any("Accessibility Service API" in t for t in texts)
+        agree = next((bounds(n) for n in tree.iter("node") if n.get("text") == "Agree"), None)
+        if shown and agree:
+            break
+        sh("input keyevent KEYCODE_HOME")  # clears most transient system dialogs
+        time.sleep(3)
     if not (shown and agree):
-        return False, f"disclosure shown={shown} agree button={agree}"
+        seen = [t for t in texts if t][:8]
+        return False, f"disclosure shown={shown} agree button={agree} screen texts={seen}"
     tap(*center(agree))
     time.sleep(1)
     on = any("IG Group Guard is" in (n.get("text") or "") for n in dump().iter("node"))
