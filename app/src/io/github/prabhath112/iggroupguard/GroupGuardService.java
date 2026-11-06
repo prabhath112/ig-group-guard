@@ -50,7 +50,10 @@ public class GroupGuardService extends AccessibilityService {
     // ponytail: English-only fallback in case the view id changes; add locales if needed.
     static final String GROUP_BUTTON_TEXT = "Send to new group chat";
 
-    private static final long RECHECK_MS = 500;
+    // While the banner is shown, re-check this often. Needed because Android 8 sends no event when a
+    // view goes GONE, and because the service only listens to Instagram, so leaving Instagram is
+    // noticed by this re-check (worst case ~300 ms of banner over the next app).
+    private static final long RECHECK_MS = 300;
     private static final long FADE_MS = 80;
     private static final long SETTLE_MS = 100; // unchanged this long = stopped
 
@@ -73,6 +76,26 @@ public class GroupGuardService extends AccessibilityService {
     // ponytail: in memory only (privacy policy: only the consent flag is stored). First open after
     // the service starts measures it; every later open is instant.
     private Rect home;
+    private boolean opening;          // true from the button's first sighting until it first settles
+    private int openingFromTop;       // where the button was first seen in this opening
+    private long graceUntil;          // keep re-checking until then after the button vanished
+    private static final long GRACE_MS = 2000, GRACE_STEP_MS = 150;
+
+    // Set while the service is bound, so the Quick Settings tile and the app can pause it.
+    private static volatile GroupGuardService running;
+
+    static boolean isRunning() { return running != null; }
+
+    /** Turns the service off (as in Settings), e.g. so a banking app that refuses to run while an
+     *  accessibility service is on can open. Turned back on from Settings or the volume-key shortcut. */
+    static boolean pause() {
+        GroupGuardService s = running;
+        if (s == null) return false;
+        Log.i(TAG, "paused by user");
+        s.hide();
+        s.disableSelf();
+        return true;
+    }
 
     private FrameLayout confirm;      // our own "Create a group chat?" popup (Ask me first mode)
     private boolean allowedThisSheet; // user said "Create group": leave the button alone until the sheet closes
@@ -81,6 +104,9 @@ public class GroupGuardService extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+        running = this;
+        home = MainActivity.savedHome(this); // remembered across restarts (e.g. Pause for banking)
+        GuardTile.refresh(this);
         Log.i(TAG, "connected sdk=" + Build.VERSION.SDK_INT);
         refresh(); // share sheet may already be open when the service is turned on
     }
@@ -96,9 +122,16 @@ public class GroupGuardService extends AccessibilityService {
         // Play policy: no use of the Accessibility API before the in-app disclosure is accepted.
         Rect button = MainActivity.hasConsent(this) ? findGroupButton() : null;
         if (button == null) {
+            if (window != null || !lastButton.isEmpty()) {
+                // The button can vanish for a moment while the keyboard closes. The service only hears
+                // from Instagram, and Instagram may send nothing more, so keep looking for a while.
+                graceUntil = SystemClock.uptimeMillis() + GRACE_MS;
+            }
             hide();
+            if (SystemClock.uptimeMillis() < graceUntil) handler.postDelayed(recheck, GRACE_STEP_MS);
             return;
         }
+        graceUntil = 0;
         if (allowedThisSheet) {
             // Confirmed for this sheet: keep Instagram's button uncovered; keep checking so the
             // permission ends as soon as the sheet (and the button) goes away.
@@ -107,6 +140,10 @@ public class GroupGuardService extends AccessibilityService {
             return;
         }
         long now = SystemClock.uptimeMillis();
+        if (lastButton.isEmpty()) { // first sighting: maybe the share sheet sliding in
+            opening = true;
+            openingFromTop = button.top;
+        }
         if (lastButton.isEmpty() || !button.equals(lastButton)) movedAt = now;
         lastButton.set(button);
         // Instagram's position updates arrive every 30-40 ms but we check every 16 ms frame, so two
@@ -115,18 +152,28 @@ public class GroupGuardService extends AccessibilityService {
         boolean moving = now - movedAt < SETTLE_MS;
         if (moving) {
             choreographer.postFrameCallback(follow); // check again next frame until it stops
-        } else {
-            if (home == null || !home.equals(button)) {
+        } else if (opening) {
+            // Home is where the button rests when the sheet has just opened. Only the opening slide
+            // may set it: keyboard-up positions overwrote it before, and when the keyboard closed the
+            // banner sat at that stale spot for ~1.2 s (screen recording, CPH2707, 2026-11-06).
+            opening = false;
+            // Learn home only from a real slide-in (button rose from below), not from a sheet that was
+            // already open (service restarted) or one with the keyboard up: that stored the keyboard-up
+            // spot and the next opening showed the banner there (log, CPH2707, 2026-11-06 15:55).
+            boolean slidIn = openingFromTop - button.top > button.height() / 2;
+            if (slidIn && (home == null || !home.equals(button))) {
                 home = new Rect(button);
+                MainActivity.saveHome(this, home);
                 Log.i(TAG, "home " + home.flattenToString());
             }
         }
 
-        // Sliding up into the remembered spot: banner stands still at home, window reaches down
-        // to the button so the moving button is covered too.
+        // Sliding up into the remembered spot (opening slide only): banner stands still at home,
+        // window reaches down to the button so the moving button is covered too. Any other movement
+        // (keyboard, scrolling) takes the invisible-follow path below and fades in once it stops.
         // Height is not compared: the button first shows up clipped by the screen edge (measured:
         // 42 px, then 95 px, then full 131 px), and waiting for full height cost ~100 ms.
-        boolean towardsHome = moving && home != null && button.left == home.left
+        boolean towardsHome = opening && moving && home != null && button.left == home.left
                 && button.right == home.right && button.top >= home.top;
         Rect bounds = button;
         if (towardsHome) {
@@ -426,7 +473,16 @@ public class GroupGuardService extends AccessibilityService {
     }
 
     @Override
+    public boolean onUnbind(android.content.Intent intent) {
+        running = null;
+        GuardTile.refresh(this);
+        return super.onUnbind(intent);
+    }
+
+    @Override
     public void onDestroy() {
+        running = null;
+        graceUntil = 0;
         hide();
         super.onDestroy();
     }

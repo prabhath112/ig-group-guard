@@ -25,6 +25,8 @@ same view ids, and logs every click (`FIXTURE_CLICK <name>`). The service logs i
 | TC11 | Consent flow | Open app, tap Agree | Disclosure shown; status screen after Agree |
 | TC12 | Service switched off/on 10x with button on screen | Toggle setting | No crash; overlay back (guards `BadTokenException`; the crash itself did not reproduce on demand, so this test is not proven to catch it) |
 | TC13 | Ask me first | Choose "Ask me first", tap banner, Cancel, tap again, Create group, tap button, close and reopen sheet | Popup shows count 3; Cancel keeps it covered; Create group uncovers it and the tap reaches the app; covered again after the sheet reopens |
+| TC14 | Keyboard up then down | Move footer up, settle, move back down | Banner follows both ways and is never drawn at the keyboard-up spot after the move down |
+| TC15 | Pause for banking | Tap "Pause for banking", then re-enable | Service turns itself off (removed from enabled services); reconnects when turned back on |
 | TC10 | Stability | Whole run | No crash of `io.github.prabhath112.iggroupguard` in crash buffer |
 | RT01 | Real Instagram, no taps | Open real share sheet, 2+ selected | Overlay rect == real button bounds |
 

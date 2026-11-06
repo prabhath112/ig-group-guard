@@ -381,6 +381,43 @@ def tc13():
         set_mode(False)
 
 
+@case("TC14", "keyboard up then down: banner never parked at the old (keyboard-up) spot")
+def tc14():
+    start_fixture("id")
+    tree = dump()
+    move = find_by_id(tree, IG + ":id/fixture_move")
+    b_rest, got, ok = overlay_matches_button()
+    if not ok:
+        return False, f"no overlay at rest: button={b_rest} overlay={got}"
+    tap(*center(move))                      # footer jumps up, like the keyboard opening
+    b_up = find_group_button(dump())
+    up_ok = bool(wait_for(lambda: overlay_state() == b_up))
+    time.sleep(0.6)                         # settled up there (v2.0 then overwrote "home")
+    mark_log()
+    tap(*center(move))                      # footer back down, like the keyboard closing
+    down_ok = bool(wait_for(lambda: overlay_state() == b_rest, 4))
+    stale = [r for r in re.findall(r"overlay (-?\d+) (-?\d+) (-?\d+) (-?\d+)", guard_log())
+             if int(r[1]) == b_up[1]]
+    ok = up_ok and down_ok and not stale
+    return ok, f"rest={b_rest} up={b_up} followed up={up_ok} back down={down_ok} stale rects={len(stale)}"
+
+
+@case("TC15", "'Pause for banking' turns the service off; it can be turned back on")
+def tc15():
+    sh(f"am start -n {APP}/.MainActivity")
+    time.sleep(2)
+    node = next((n for n in dump().iter("node") if n.get("text") == "Pause for banking"), None)
+    if node is None:
+        return False, "no 'Pause for banking' button"
+    tap(*center(bounds(node)))
+    off = bool(wait_for(lambda: "paused by user" in guard_log()
+                        and SERVICE not in sh("settings get secure enabled_accessibility_services")))
+    mark_log()
+    ensure_service_enabled()
+    back = bool(wait_for(lambda: "connected sdk=" in guard_log(), 10))
+    return off and back, f"paused={off} back on={back}"
+
+
 def overlay_window_frame():
     """Frame of our overlay window from the window manager, or None. Needs no uiautomator."""
     out = sh("dumpsys window windows")
@@ -467,7 +504,7 @@ def main():
         for c in (tc01, tc00, tc11):
             c()
         start_fixture("id")
-        cases = [tc02, tc03, tc04, tc05, tc06, tc07, tc08, tc09, tc12, tc13, tc10]
+        cases = [tc02, tc03, tc04, tc05, tc06, tc07, tc08, tc09, tc12, tc13, tc14, tc15, tc10]
 
     for c in cases:
         c()
