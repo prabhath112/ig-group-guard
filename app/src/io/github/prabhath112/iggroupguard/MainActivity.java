@@ -34,6 +34,18 @@ public class MainActivity extends Activity {
         return c.getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(KEY_CONSENT, false);
     }
 
+    private static final String KEY_HOME = "home"; // the group button's resting spot on screen
+
+    /** Where the group button rests when the share sheet opens, or null (one screen rectangle). */
+    static android.graphics.Rect savedHome(Context c) {
+        String v = c.getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_HOME, null);
+        return v == null ? null : android.graphics.Rect.unflattenFromString(v);
+    }
+
+    static void saveHome(Context c, android.graphics.Rect r) {
+        c.getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_HOME, r.flattenToString()).apply();
+    }
+
     /** "Ask me first" chosen; default is "Block it". */
     static boolean askFirst(Context c) {
         return c.getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(KEY_ASK_FIRST, false);
@@ -47,7 +59,7 @@ public class MainActivity extends Activity {
         if (value) {
             getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(KEY_CONSENT, true).apply();
         } else {
-            // "Withdraw and delete": the consent flag and the Block/Ask choice are all IG Group Guard stores.
+            // "Withdraw and delete": consent, the Block/Ask choice and the button position are all it stores.
             getSharedPreferences(PREFS, MODE_PRIVATE).edit().clear().apply();
         }
     }
@@ -89,6 +101,19 @@ public class MainActivity extends Activity {
                 startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
             }
         }));
+        box.addView(text(R.string.bank_title, 18));
+        box.addView(text(R.string.bank_help, 14));
+        if (running) {
+            box.addView(button(R.string.pause_button, new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    if (GroupGuardService.pause()) {
+                        android.widget.Toast.makeText(MainActivity.this, R.string.paused_toast,
+                                android.widget.Toast.LENGTH_LONG).show();
+                    }
+                    showStatus();
+                }
+            }));
+        }
         box.addView(link(R.string.privacy_policy, PRIVACY_URL));
         box.addView(button(R.string.withdraw, new View.OnClickListener() {
             @Override public void onClick(View v) {

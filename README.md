@@ -23,7 +23,7 @@ or Meta. Instagram is a trademark of its owner.
 ## Privacy in one line
 
 No internet permission, no analytics, no ads, no SDKs, no accounts. The only things stored are a
-yes/no consent flag and your Block it / Ask me first choice. Details: [privacy policy](docs/privacy-policy.md).
+yes/no consent flag, your Block it / Ask me first choice and the button's screen position. Details: [privacy policy](docs/privacy-policy.md).
 
 ## How it works
 
@@ -52,6 +52,14 @@ yes/no consent flag and your Block it / Ask me first choice. Details: [privacy p
    Allow restricted settings**, then repeat step 3.
 5. **Xiaomi / Oppo / OnePlus / Realme / Vivo / Samsung:** set battery use to Unrestricted (and
    allow Autostart where offered), or the system may stop the service.
+
+**Bank or payment app will not open?** Some banking apps refuse to start while *any* accessibility
+service is on (their anti-fraud rule; no app can hide from it, and claiming to be an accessibility
+tool would break Play policy). Pause IG Group Guard while banking: the **Pause for banking**
+button in the app, the **Quick Settings tile**, or the volume-key **accessibility shortcut**
+(Settings → Accessibility → IG Group Guard → Shortcut). Some apps, such as Google Pay, require *every*
+downloaded accessibility app to be off (launchers included) and ask for a phone restart afterwards. Android does not let an app switch its own accessibility
+service back on, so turning it on again is one tap in Settings, the tile, or the shortcut.
 
 **"Blocked by Play Protect"?** In India and some other countries, Google Play Protect's
 [enhanced fraud protection](https://blog.google/intl/en-in/products/launching-enhanced-fraud-protection-pilot-in-india/)

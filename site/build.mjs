@@ -74,6 +74,11 @@ Read the <a href="privacy-policy">privacy policy</a>.</p>
 <li>Tap <strong>Open Accessibility settings</strong> → Installed apps → IG Group Guard → On.</li>
 <li>Android 13 or newer: if the switch is greyed out, open Settings → Apps → IG Group Guard → ⋮ → Allow restricted settings.</li>
 </ol>
+<h2 id="banking">Bank or payment app will not open?</h2>
+<p>Some banking and payment apps refuse to start while any accessibility service is on. That is
+their anti-fraud rule, not a fault in IG Group Guard. Pause it while banking with the
+<strong>Pause for banking</strong> button in the app, the Quick Settings tile, or the volume-key
+accessibility shortcut, and turn it back on afterwards.</p>
 <h2 id="play-protect">"Blocked by Play Protect"?</h2>
 <p>In India and some other countries, Google Play Protect blocks any app that uses the Accessibility
 service when it is installed from a browser, chat app or file manager. IG Group Guard needs that
