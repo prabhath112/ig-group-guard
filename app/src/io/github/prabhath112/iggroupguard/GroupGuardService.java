@@ -58,8 +58,11 @@ public class GroupGuardService extends AccessibilityService {
     private static final long SETTLE_MS = 70; // unchanged this long = stopped (> 30-40 ms update gap)
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    // Polls and the per-frame follow scan only Instagram's active window (cheap). The full getWindows()
+    // scan over every window is reserved for real Instagram events (deep), where the sheet may just have
+    // opened in another window. Keeps the 120 ms watch-poll and 16 ms follow from being expensive.
     private final Runnable recheck = new Runnable() {
-        @Override public void run() { refresh(); }
+        @Override public void run() { refresh(false); }
     };
     // Instagram fires accessibility events in bursts (video playback, list thumbnails loading). Each
     // refresh() does a full getWindows() + node-tree walk, so running one per event saturates the main
@@ -67,11 +70,11 @@ public class GroupGuardService extends AccessibilityService {
     // arrives late). Coalesce instead -- a burst collapses to one scan on the next loop turn.
     private boolean refreshScheduled;
     private final Runnable refreshNow = new Runnable() {
-        @Override public void run() { refreshScheduled = false; refresh(); }
+        @Override public void run() { refreshScheduled = false; refresh(true); }
     };
     private final Choreographer choreographer = Choreographer.getInstance();
     private final Choreographer.FrameCallback follow = new Choreographer.FrameCallback() {
-        @Override public void doFrame(long frameTimeNanos) { refresh(); }
+        @Override public void doFrame(long frameTimeNanos) { refresh(false); }
     };
 
     private WindowManager wm;
@@ -120,7 +123,7 @@ public class GroupGuardService extends AccessibilityService {
         home = MainActivity.savedHome(this); // remembered across restarts (e.g. Pause for banking)
         GuardTile.refresh(this);
         Log.i(TAG, "connected sdk=" + Build.VERSION.SDK_INT);
-        refresh(); // share sheet may already be open when the service is turned on
+        refresh(true); // share sheet may already be open when the service is turned on
     }
 
     @Override
@@ -130,7 +133,7 @@ public class GroupGuardService extends AccessibilityService {
         handler.post(refreshNow);
     }
 
-    private void refresh() {
+    private void refresh(boolean deep) {
         handler.removeCallbacks(recheck);
         choreographer.removeFrameCallback(follow);
         // Active only while Instagram is the foreground app. The moment it is not, tear everything
@@ -144,7 +147,7 @@ public class GroupGuardService extends AccessibilityService {
             return;
         }
         // Play policy: no use of the Accessibility API before the in-app disclosure is accepted.
-        Rect button = MainActivity.hasConsent(this) ? findGroupButton() : null;
+        Rect button = MainActivity.hasConsent(this) ? findGroupButton(deep) : null;
         if (button == null) {
             if (window != null || !lastButton.isEmpty()) {
                 // The button can vanish for a moment while the keyboard closes. Instagram is still in
@@ -154,12 +157,14 @@ public class GroupGuardService extends AccessibilityService {
             hide();
             if (SystemClock.uptimeMillis() < graceUntil) {
                 handler.postDelayed(recheck, GRACE_STEP_MS);
-            } else if (fg != null && fg == 1) {
-                // Instagram is foreground but the share sheet is not up yet. Being event-driven, we
-                // would otherwise wait for Instagram's next event (~0.9 s on a fresh open, measured on
-                // CPH2707) and the real group button stays tappable that whole time. Poll gently while
-                // Instagram is in front so the sheet is covered within WATCH_STEP_MS. Stops the moment
-                // Instagram is not foreground (hibernate above), so it is bounded, not a global poll.
+            } else {
+                // Instagram is foreground (fg == 1) or momentarily unknown (fg == null: a video frame or
+                // transition returns no active-window root). Keep polling in BOTH cases. Earlier this
+                // re-armed only on fg == 1, so every null reading killed the poll and left the service
+                // event-only; if Instagram then sent no event we accept, the share sheet stayed
+                // uncovered for seconds (the group button tappable the whole time). Only a confirmed
+                // other app (fg == 0) stops the poll -- that hibernates and returns above. The poll uses
+                // the cheap active-window scan, so running it continuously in Instagram is not expensive.
                 handler.postDelayed(recheck, WATCH_STEP_MS);
             }
             return;
@@ -286,21 +291,22 @@ public class GroupGuardService extends AccessibilityService {
     }
 
     /** Bounds of the group button in any on-screen Instagram window, or null. */
-    private Rect findGroupButton() {
-        AccessibilityNodeInfo node = findGroupNode();
+    private Rect findGroupButton(boolean deep) {
+        AccessibilityNodeInfo node = findGroupNode(deep);
         if (node == null) return null;
         Rect r = new Rect();
         node.getBoundsInScreen(r);
         return r.isEmpty() ? null : r;
     }
 
-    private AccessibilityNodeInfo findGroupNode() {
-        // Cheap path first: the share sheet is a modal in Instagram's own active window, so the button
-        // is almost always in getRootInActiveWindow() (one tree to walk). getWindows() builds and walks
-        // EVERY interactive window and is much heavier (worse with a video-call PiP up): only pay it as
-        // a fallback when the button is not in the active window. This is the main CPU/latency saver.
+    private AccessibilityNodeInfo findGroupNode(boolean deep) {
+        // The share sheet is a modal in Instagram's own active window, so the button is almost always in
+        // getRootInActiveWindow() (one tree to walk). This cheap scan is all the frequent callers (120 ms
+        // poll, 16 ms follow) ever do. getWindows() builds and walks EVERY interactive window and is much
+        // heavier (worse with a video-call PiP up); only the deep callers (real Instagram events) fall
+        // back to it, for the rare case the button is in another window.
         AccessibilityNodeInfo n = findIn(getRootInActiveWindow());
-        if (n != null) return n;
+        if (n != null || !deep) return n;
         List<AccessibilityWindowInfo> windows = getWindows();
         if (windows == null) return null;
         for (AccessibilityWindowInfo w : windows) {
@@ -322,7 +328,7 @@ public class GroupGuardService extends AccessibilityService {
 
     /** Number of selected people from the button label "Send to new group chat (N)", or -1. */
     private int selectedCount() {
-        AccessibilityNodeInfo node = findGroupNode();
+        AccessibilityNodeInfo node = findGroupNode(true);
         if (node == null) return -1;
         StringBuilder text = new StringBuilder();
         collectText(node, text, 0);

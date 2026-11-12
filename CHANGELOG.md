@@ -15,9 +15,16 @@ as the GitHub Release notes.
   a video-call picture-in-picture adding windows) this saturated the main thread, so the refresh
   that should place the banner backed up behind the burst. Measured on CPH2707: about 6-15% CPU
   while Instagram was foreground, dropping to near 0% after the fix.
+- Banner sometimes appeared seconds late on a fresh share sheet. The watch-poll only re-armed when
+  the foreground app was confirmed to be Instagram; a video frame or transition that returned no
+  active-window root (reported as "unknown") stopped the poll and left the service event-only, so if
+  Instagram sent no event we accept the share sheet stayed uncovered for a few seconds. The poll now
+  keeps running unless a different app is confirmed in front.
 
 ### Changed
 - Accessibility events are now coalesced: a burst collapses to a single scan on the next loop turn.
+- Polls and the per-frame follow scan only Instagram's active window; the heavier all-windows
+  `getWindows()` scan runs only on real Instagram events. Keeps the continuous poll cheap.
 - The group button is looked for in Instagram's active window first (one tree); the heavier
   `getWindows()` over all windows is only a fallback. This is the main CPU and latency saver.
 - The fast re-check after the group button vanishes (keyboard open on the share sheet) now lasts
