@@ -79,7 +79,7 @@ public class GroupGuardService extends AccessibilityService {
     private boolean opening;          // true from the button's first sighting until it first settles
     private int openingFromTop;       // where the button was first seen in this opening
     private long graceUntil;          // keep re-checking until then after the button vanished
-    private static final long GRACE_MS = 2000, GRACE_STEP_MS = 50;
+    private static final long GRACE_MS = 2000, GRACE_STEP_MS = 50, WATCH_STEP_MS = 120;
 
     // Set while the service is bound, so the Quick Settings tile and the app can pause it.
     private static volatile GroupGuardService running;
@@ -138,7 +138,16 @@ public class GroupGuardService extends AccessibilityService {
                 graceUntil = SystemClock.uptimeMillis() + GRACE_MS;
             }
             hide();
-            if (SystemClock.uptimeMillis() < graceUntil) handler.postDelayed(recheck, GRACE_STEP_MS);
+            if (SystemClock.uptimeMillis() < graceUntil) {
+                handler.postDelayed(recheck, GRACE_STEP_MS);
+            } else if (fg != null && fg == 1) {
+                // Instagram is foreground but the share sheet is not up yet. Being event-driven, we
+                // would otherwise wait for Instagram's next event (~0.9 s on a fresh open, measured on
+                // CPH2707) and the real group button stays tappable that whole time. Poll gently while
+                // Instagram is in front so the sheet is covered within WATCH_STEP_MS. Stops the moment
+                // Instagram is not foreground (hibernate above), so it is bounded, not a global poll.
+                handler.postDelayed(recheck, WATCH_STEP_MS);
+            }
             return;
         }
         graceUntil = 0;
