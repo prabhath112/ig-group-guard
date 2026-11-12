@@ -1,6 +1,7 @@
 package io.github.prabhath112.iggroupguard;
 
 import android.accessibilityservice.AccessibilityService;
+import android.content.res.Configuration;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.os.Build;
@@ -23,8 +24,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Covers Instagram's "Send to new group chat (N)" share-sheet button with a grey,
@@ -116,7 +115,6 @@ public class GroupGuardService extends AccessibilityService {
 
     private FrameLayout confirm;      // our own "Create a group chat?" popup (Ask me first mode)
     private boolean allowedThisSheet; // user said "Create group": leave the button alone until the sheet closes
-    private static final Pattern COUNT = Pattern.compile("\\((\\d+)\\)"); // "... (3)"
 
     @Override
     protected void onServiceConnected() {
@@ -133,6 +131,20 @@ public class GroupGuardService extends AccessibilityService {
         if (refreshScheduled) return; // a burst of events collapses to one refresh (see refreshNow)
         refreshScheduled = true;
         handler.post(refreshNow);
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        // home is an absolute screen rect. A rotation / fold / split-screen / density change invalidates
+        // it, so drop it (in memory and on disk) and let the next share sheet re-learn the resting spot
+        // rather than placing the banner at a stale position.
+        if (home != null) {
+            home = null;
+            MainActivity.saveHome(this, null);
+            Log.i(TAG, "home cleared (configuration changed)");
+        }
+        refresh(true);
     }
 
     private void refresh(boolean deep) {
@@ -205,7 +217,7 @@ public class GroupGuardService extends AccessibilityService {
             // Learn home only from a real slide-in (button rose from below), not from a sheet that was
             // already open (service restarted) or one with the keyboard up: that stored the keyboard-up
             // spot and the next opening showed the banner there (log, CPH2707, 2026-11-06 15:55).
-            boolean slidIn = openingFromTop - button.top > button.height() / 2;
+            boolean slidIn = SlideGeometry.slidIn(openingFromTop, button.top, button.height());
             if (slidIn && (home == null || !home.equals(button))) {
                 home = new Rect(button);
                 MainActivity.saveHome(this, home);
@@ -218,12 +230,13 @@ public class GroupGuardService extends AccessibilityService {
         // (keyboard, scrolling) takes the invisible-follow path below and fades in once it stops.
         // Height is not compared: the button first shows up clipped by the screen edge (measured:
         // 42 px, then 95 px, then full 131 px), and waiting for full height cost ~100 ms.
-        boolean sameColumn = home != null && button.left == home.left && button.right == home.right;
-        boolean towardsHome = opening && moving && sameColumn && button.top >= home.top;
+        boolean sameColumn = home != null
+                && SlideGeometry.sameColumn(button.left, button.right, home.left, home.right);
+        int homeTop = home == null ? 0 : home.top; // only read when sameColumn, which implies home != null
+        boolean towardsHome = SlideGeometry.towardsHome(opening, moving, sameColumn, button.top, homeTop);
         // Keyboard closing: the button comes back DOWN to home. Home is reliable now (only learned from
         // the opening slide), so show the banner there at once instead of waiting for it to settle.
-        boolean backDownHome = !opening && moving && sameColumn && button.top < home.top
-                && button.top >= prevTop;
+        boolean backDownHome = SlideGeometry.backDownHome(opening, moving, sameColumn, button.top, homeTop, prevTop);
         Rect bounds = button;
         boolean bannerAtBottom = false;
         if (towardsHome) {
@@ -346,8 +359,7 @@ public class GroupGuardService extends AccessibilityService {
         if (node == null) return -1;
         StringBuilder text = new StringBuilder();
         collectText(node, text, 0);
-        Matcher m = COUNT.matcher(text);
-        return m.find() ? Integer.parseInt(m.group(1)) : -1;
+        return SlideGeometry.parseCount(text);
     }
 
     private static void collectText(AccessibilityNodeInfo n, StringBuilder out, int depth) {

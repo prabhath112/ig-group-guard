@@ -25,6 +25,14 @@ as the GitHub Release notes.
   closes the confirmation popup; if the overlay fails to attach it now retries instead of leaving the
   poll dead (button could stay tappable); a group button in a non-active window is kept covered by the
   recheck; and a null package name on a scanned system/keyboard window no longer crashes the service.
+- The learned button position is now discarded on rotation, fold, split-screen or density change
+  (`onConfigurationChanged`), so after rotating, the banner re-learns the correct spot instead of
+  sitting at a stale one.
+
+### Added
+- A dependency-free JVM unit test (`test/SlideGeometryTest.java`) covering the overlay decision logic
+  (slide-in detection, same-column, towards/back-to home, people-count parsing), extracted into
+  `SlideGeometry` and run as part of `build.sh` so a regression fails the build and CI.
 
 ### Changed
 - Accessibility events are now coalesced: a burst collapses to a single scan on the next loop turn.

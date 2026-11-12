@@ -81,7 +81,16 @@ if [ ! -f "$DEBUG_KS" ]; then # fresh machine / CI: make a throwaway debug key
     -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" >/dev/null 2>&1
 fi
 
+run_unit_tests() { # pure-JVM tests for SlideGeometry decision logic (no Android, no JUnit, no network)
+  local t=build/unittest
+  mkdir -p "$t"
+  javac -encoding UTF-8 -d "$t" \
+    app/src/io/github/prabhath112/iggroupguard/SlideGeometry.java test/SlideGeometryTest.java
+  java -ea -cp "$t" io.github.prabhath112.iggroupguard.SlideGeometryTest
+}
+
 rm -rf build
+run_unit_tests
 compile app
 compile fixture
 sign_apk app "$DEBUG_KS" androiddebugkey android build/ig-group-guard-debug.apk

@@ -42,8 +42,11 @@ public class MainActivity extends Activity {
         return v == null ? null : android.graphics.Rect.unflattenFromString(v);
     }
 
+    /** Persists the button's resting spot, or clears it when r is null (e.g. invalidated by a rotation). */
     static void saveHome(Context c, android.graphics.Rect r) {
-        c.getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_HOME, r.flattenToString()).apply();
+        android.content.SharedPreferences.Editor e = c.getSharedPreferences(PREFS, MODE_PRIVATE).edit();
+        if (r == null) e.remove(KEY_HOME); else e.putString(KEY_HOME, r.flattenToString());
+        e.apply();
     }
 
     /** "Ask me first" chosen; default is "Block it". */
