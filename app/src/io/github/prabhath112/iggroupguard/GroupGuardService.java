@@ -55,7 +55,7 @@ public class GroupGuardService extends AccessibilityService {
     // noticed by this re-check (worst case ~300 ms of banner over the next app).
     private static final long RECHECK_MS = 300;
     private static final long FADE_MS = 80;
-    private static final long SETTLE_MS = 100; // unchanged this long = stopped
+    private static final long SETTLE_MS = 70; // unchanged this long = stopped (> 30-40 ms update gap)
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable recheck = new Runnable() {
@@ -79,7 +79,7 @@ public class GroupGuardService extends AccessibilityService {
     private boolean opening;          // true from the button's first sighting until it first settles
     private int openingFromTop;       // where the button was first seen in this opening
     private long graceUntil;          // keep re-checking until then after the button vanished
-    private static final long GRACE_MS = 2000, GRACE_STEP_MS = 150;
+    private static final long GRACE_MS = 2000, GRACE_STEP_MS = 50;
 
     // Set while the service is bound, so the Quick Settings tile and the app can pause it.
     private static volatile GroupGuardService running;
@@ -119,12 +119,22 @@ public class GroupGuardService extends AccessibilityService {
     private void refresh() {
         handler.removeCallbacks(recheck);
         choreographer.removeFrameCallback(follow);
+        // Active only while Instagram is the foreground app. The moment it is not, tear everything
+        // down and sleep: no overlay, no timers, no polling, until Instagram comes back. The service
+        // stays enabled (it is not hiding from anything); it just does no work outside Instagram.
+        Integer fg = foregroundIsInstagram();
+        if (fg != null && fg == 0) {
+            if (window != null || !lastButton.isEmpty()) Log.i(TAG, "hibernate (left Instagram)");
+            graceUntil = 0;
+            hide();
+            return;
+        }
         // Play policy: no use of the Accessibility API before the in-app disclosure is accepted.
         Rect button = MainActivity.hasConsent(this) ? findGroupButton() : null;
         if (button == null) {
             if (window != null || !lastButton.isEmpty()) {
-                // The button can vanish for a moment while the keyboard closes. The service only hears
-                // from Instagram, and Instagram may send nothing more, so keep looking for a while.
+                // The button can vanish for a moment while the keyboard closes. Instagram is still in
+                // front (checked above), but may send nothing more, so keep looking for a short while.
                 graceUntil = SystemClock.uptimeMillis() + GRACE_MS;
             }
             hide();
@@ -144,6 +154,7 @@ public class GroupGuardService extends AccessibilityService {
             opening = true;
             openingFromTop = button.top;
         }
+        int prevTop = lastButton.isEmpty() ? button.top : lastButton.top;
         if (lastButton.isEmpty() || !button.equals(lastButton)) movedAt = now;
         lastButton.set(button);
         // Instagram's position updates arrive every 30-40 ms but we check every 16 ms frame, so two
@@ -173,26 +184,39 @@ public class GroupGuardService extends AccessibilityService {
         // (keyboard, scrolling) takes the invisible-follow path below and fades in once it stops.
         // Height is not compared: the button first shows up clipped by the screen edge (measured:
         // 42 px, then 95 px, then full 131 px), and waiting for full height cost ~100 ms.
-        boolean towardsHome = opening && moving && home != null && button.left == home.left
-                && button.right == home.right && button.top >= home.top;
+        boolean sameColumn = home != null && button.left == home.left && button.right == home.right;
+        boolean towardsHome = opening && moving && sameColumn && button.top >= home.top;
+        // Keyboard closing: the button comes back DOWN to home. Home is reliable now (only learned from
+        // the opening slide), so show the banner there at once instead of waiting for it to settle.
+        boolean backDownHome = !opening && moving && sameColumn && button.top < home.top
+                && button.top >= prevTop;
         Rect bounds = button;
+        boolean bannerAtBottom = false;
         if (towardsHome) {
             // Only ever grow during the slide: resizing the window every frame made it flicker.
             int bottom = Math.max(home.bottom, button.bottom);
             if (window != null && shown.top == home.top) bottom = Math.max(bottom, shown.bottom);
             bounds = new Rect(home.left, home.top, home.right, bottom);
+        } else if (backDownHome) {
+            // Window from the moving button down to home; banner sits at its bottom (= home).
+            int top = button.top;
+            if (window != null && shown.bottom == home.bottom) top = Math.min(top, shown.top);
+            bounds = new Rect(home.left, top, home.right, home.bottom);
+            bannerAtBottom = true;
         }
-        int bannerHeight = towardsHome ? home.height() : button.height();
-        place(bounds, bannerHeight);
+        int bannerHeight = towardsHome || backDownHome ? home.height() : button.height();
+        place(bounds, bannerHeight, bannerAtBottom);
         if (banner == null) return; // window could not be added (service shutting down)
         String label = getString(MainActivity.askFirst(this) ? R.string.banner_ask : R.string.banner_block);
         if (!label.contentEquals(banner.getText())) banner.setText(label);
 
-        if (towardsHome) {
-            showNow(); // known final spot: appear at once, standing still; the button slides in under it
+        if (towardsHome || backDownHome) {
+            showNow(); // known final spot: appear at once, standing still; the button moves into it
+        } else if (!moving && !opening) {
+            showNow(); // settled after a keyboard/scroll move: no fade, appear at once
         } else {
-            // Standing still: fade in. Moving with no known spot yet (first open after the service
-            // starts): stay invisible but keep blocking taps, so the user never sees it step.
+            // Standing still after the opening slide: fade in. Moving with no known spot (first open
+            // ever): stay invisible but keep blocking taps, so the user never sees it step.
             setVisible(!moving);
         }
 
@@ -221,6 +245,21 @@ public class GroupGuardService extends AccessibilityService {
             banner.animate().cancel();
             banner.setAlpha(0f);
         }
+    }
+
+    /**
+     * 1 = Instagram is the active app, 0 = a known other app is, null = unknown (keep current state).
+     * The overlay is a window of ours, so it is ignored. Null on uncertainty so a brief blank frame
+     * never tears down a working overlay (the keyboard-close case keeps its grace path).
+     */
+    private Integer foregroundIsInstagram() {
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null) return null;
+        CharSequence pkg = root.getPackageName();
+        if (pkg == null) return null;
+        if (INSTAGRAM.contentEquals(pkg)) return 1;
+        if (getPackageName().contentEquals(pkg)) return null; // our own overlay window; not a signal
+        return 0;
     }
 
     /** Bounds of the group button in any on-screen Instagram window, or null. */
@@ -273,8 +312,13 @@ public class GroupGuardService extends AccessibilityService {
     }
 
     private void place(Rect r, int bannerHeight) {
-        if (window != null && r.equals(shown)
-                && banner.getLayoutParams().height == bannerHeight) return;
+        place(r, bannerHeight, false);
+    }
+
+    private void place(Rect r, int bannerHeight, boolean bannerAtBottom) {
+        int gravity = bannerAtBottom ? Gravity.BOTTOM : Gravity.TOP;
+        if (window != null && r.equals(shown) && banner.getLayoutParams().height == bannerHeight
+                && ((FrameLayout.LayoutParams) banner.getLayoutParams()).gravity == gravity) return;
         WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
                 r.width(), r.height(), r.left, r.top,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
@@ -297,7 +341,7 @@ public class GroupGuardService extends AccessibilityService {
             banner.setAlpha(0f); // refresh() decides when it shows; taps are blocked regardless
             window = new FrameLayout(this);
             window.setContentDescription("Send to new group chat, disabled by IG Group Guard");
-            window.addView(banner, new FrameLayout.LayoutParams(-1, bannerHeight, Gravity.TOP));
+            window.addView(banner, new FrameLayout.LayoutParams(-1, bannerHeight, gravity));
             window.setOnTouchListener(new View.OnTouchListener() {
                 @Override
                 public boolean onTouch(View v, MotionEvent e) {
@@ -323,7 +367,9 @@ public class GroupGuardService extends AccessibilityService {
                 return;
             }
         } else {
-            banner.getLayoutParams().height = bannerHeight;
+            FrameLayout.LayoutParams blp = (FrameLayout.LayoutParams) banner.getLayoutParams();
+            blp.height = bannerHeight;
+            blp.gravity = gravity;
             banner.requestLayout();
             try {
                 wm.updateViewLayout(window, lp);

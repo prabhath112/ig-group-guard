@@ -381,6 +381,21 @@ def tc13():
         set_mode(False)
 
 
+@case("TC16", "hibernates when Instagram leaves the foreground, wakes when it returns")
+def tc16():
+    start_fixture("id")
+    b, got, ok = overlay_matches_button()
+    if not ok:
+        return False, f"no overlay while fixture foreground: {got}"
+    mark_log()
+    sh("input keyevent KEYCODE_HOME")       # leave the fixture (= Instagram package)
+    slept = bool(wait_for(lambda: "hibernate (left Instagram)" in guard_log()
+                          and overlay_state() == "hidden"))
+    start_fixture("id")  # bring Instagram (the fixture) back to the foreground
+    woke = bool(wait_for(lambda: isinstance(overlay_state(), tuple), 8))
+    return slept and woke, f"hibernated={slept} woke={woke}"
+
+
 @case("TC14", "keyboard up then down: banner never parked at the old (keyboard-up) spot")
 def tc14():
     start_fixture("id")
@@ -504,7 +519,7 @@ def main():
         for c in (tc01, tc00, tc11):
             c()
         start_fixture("id")
-        cases = [tc02, tc03, tc04, tc05, tc06, tc07, tc08, tc09, tc12, tc13, tc14, tc15, tc10]
+        cases = [tc02, tc03, tc04, tc05, tc06, tc07, tc08, tc09, tc12, tc13, tc14, tc15, tc16, tc10]
 
     for c in cases:
         c()
