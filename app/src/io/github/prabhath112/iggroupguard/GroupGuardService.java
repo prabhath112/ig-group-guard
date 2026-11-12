@@ -61,6 +61,14 @@ public class GroupGuardService extends AccessibilityService {
     private final Runnable recheck = new Runnable() {
         @Override public void run() { refresh(); }
     };
+    // Instagram fires accessibility events in bursts (video playback, list thumbnails loading). Each
+    // refresh() does a full getWindows() + node-tree walk, so running one per event saturates the main
+    // thread: CPU spikes and the refresh that should place the banner backs up behind the burst (banner
+    // arrives late). Coalesce instead -- a burst collapses to one scan on the next loop turn.
+    private boolean refreshScheduled;
+    private final Runnable refreshNow = new Runnable() {
+        @Override public void run() { refreshScheduled = false; refresh(); }
+    };
     private final Choreographer choreographer = Choreographer.getInstance();
     private final Choreographer.FrameCallback follow = new Choreographer.FrameCallback() {
         @Override public void doFrame(long frameTimeNanos) { refresh(); }
@@ -79,7 +87,11 @@ public class GroupGuardService extends AccessibilityService {
     private boolean opening;          // true from the button's first sighting until it first settles
     private int openingFromTop;       // where the button was first seen in this opening
     private long graceUntil;          // keep re-checking until then after the button vanished
-    private static final long GRACE_MS = 2000, GRACE_STEP_MS = 50, WATCH_STEP_MS = 120;
+    // GRACE_MS is also how long we keep fast-polling (GRACE_STEP_MS) after the group button vanishes,
+    // which is exactly when the keyboard opens on the share sheet. Long enough to span typing a message,
+    // so closing the keyboard re-covers the button within ~50 ms. Scoped to a share sheet that was just
+    // open (grace only arms after the button was tracked), so general scrolling/comments pay nothing.
+    private static final long GRACE_MS = 6000, GRACE_STEP_MS = 50, WATCH_STEP_MS = 120;
 
     // Set while the service is bound, so the Quick Settings tile and the app can pause it.
     private static volatile GroupGuardService running;
@@ -113,7 +125,9 @@ public class GroupGuardService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        refresh();
+        if (refreshScheduled) return; // a burst of events collapses to one refresh (see refreshNow)
+        refreshScheduled = true;
+        handler.post(refreshNow);
     }
 
     private void refresh() {
@@ -281,10 +295,16 @@ public class GroupGuardService extends AccessibilityService {
     }
 
     private AccessibilityNodeInfo findGroupNode() {
+        // Cheap path first: the share sheet is a modal in Instagram's own active window, so the button
+        // is almost always in getRootInActiveWindow() (one tree to walk). getWindows() builds and walks
+        // EVERY interactive window and is much heavier (worse with a video-call PiP up): only pay it as
+        // a fallback when the button is not in the active window. This is the main CPU/latency saver.
+        AccessibilityNodeInfo n = findIn(getRootInActiveWindow());
+        if (n != null) return n;
         List<AccessibilityWindowInfo> windows = getWindows();
-        if (windows == null || windows.isEmpty()) return findIn(getRootInActiveWindow());
+        if (windows == null) return null;
         for (AccessibilityWindowInfo w : windows) {
-            AccessibilityNodeInfo n = findIn(w.getRoot());
+            n = findIn(w != null ? w.getRoot() : null);
             if (n != null) return n;
         }
         return null;

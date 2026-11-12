@@ -6,6 +6,24 @@ as the GitHub Release notes.
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-11-12
+
+### Fixed
+- Instagram felt laggy and the banner sometimes appeared late. The service ran a full scan
+  (`getWindows()` over every interactive window, plus a node-tree walk) on every Instagram
+  accessibility event, with no coalescing. During event bursts (video playback, list thumbnails,
+  a video-call picture-in-picture adding windows) this saturated the main thread, so the refresh
+  that should place the banner backed up behind the burst. Measured on CPH2707: about 6-15% CPU
+  while Instagram was foreground, dropping to near 0% after the fix.
+
+### Changed
+- Accessibility events are now coalesced: a burst collapses to a single scan on the next loop turn.
+- The group button is looked for in Instagram's active window first (one tree); the heavier
+  `getWindows()` over all windows is only a fallback. This is the main CPU and latency saver.
+- The fast re-check after the group button vanishes (keyboard open on the share sheet) now lasts
+  6 s instead of 2 s, so closing the keyboard re-covers the button quickly even after typing a
+  longer message. Scoped to a share sheet that was just open, so general scrolling pays nothing.
+
 ## [2.1.0] - 2026-11-06
 
 ### Fixed
