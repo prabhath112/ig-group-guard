@@ -1,0 +1,4 @@
+Ask me first mode (confirm before a group is created).
+Active only while Instagram is open; sleeps otherwise.
+Pause for banking: button, Quick Settings tile and volume-key shortcut for apps that block accessibility.
+Faster: the button is covered the moment the share sheet opens; banner returns instantly after the keyboard closes.
