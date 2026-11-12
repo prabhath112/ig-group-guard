@@ -38,5 +38,19 @@
     <string name="confirm_no">Cancel</string>
     <string name="confirm_yes">Create group</string>
 
+    <!-- v2.1: banking apps that refuse to run while an accessibility service is on -->
+    <string name="bank_title">Bank or payment app will not open?</string>
+    <string name="bank_help">Some banking and payment apps refuse to start while any accessibility service is turned on. That is their security rule, not a fault in IG Group Guard. Pause IG Group Guard while you use them:
+
+• Tap \"Pause for banking\" below, or
+• Add the IG Group Guard tile to Quick Settings (pull down twice, tap the pencil icon), or
+• Set the accessibility shortcut: Settings &gt; Accessibility &gt; IG Group Guard &gt; Shortcut. Holding both volume keys then turns it on and off.
+
+Some apps (for example Google Pay) require every downloaded accessibility app to be off, including launchers, and ask you to restart the phone afterwards. Turn IG Group Guard back on when you are done.</string>
+    <string name="pause_button">Pause for banking</string>
+    <string name="paused_toast">IG Group Guard paused. Your banking app can open now. Turn it back on in Accessibility settings, the tile, or the volume-key shortcut.</string>
+    <string name="tile_on">On</string>
+    <string name="tile_off">Paused</string>
+
     <string name="not_affiliated">IG Group Guard is an independent app. It is not affiliated with, endorsed by, or sponsored by Instagram or Meta. Instagram is a trademark of its owner.</string>
 </resources>

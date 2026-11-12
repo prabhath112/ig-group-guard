@@ -10,9 +10,9 @@ How to fill in the two Play Console forms for IG Group Guard. Re-check the wordi
 | Data collected | None | Window structure is checked in memory only to find one button and is not kept. |
 | Data shared | None | Nothing is sent off the device. |
 | Is all user data encrypted in transit? | Not applicable | No data is transmitted. |
-| Do you provide a way for users to request that their data be deleted? | Not applicable, no data collected | Only two local settings exist (consent yes/no, Block it / Ask me first); "Withdraw consent and delete data" or uninstalling deletes them. |
+| Do you provide a way for users to request that their data be deleted? | Not applicable, no data collected | Only three local settings exist (consent yes/no, Block it / Ask me first, the button's screen position); "Withdraw consent and delete data" or uninstalling deletes them. |
 
-Note: the two local settings never leave the device, so it is not "collected" in the sense of the form. Review the Console's definitions before answering.
+Note: the three local settings never leave the device, so it is not "collected" in the sense of the form. Review the Console's definitions before answering.
 
 ## Accessibility API declaration
 
@@ -46,3 +46,11 @@ Record the screen of a real device. Scroll slowly and pause on every text screen
 8. Show that "Send separately" still works and that Instagram's own "New group" icon still works.
 9. Optional: switch to another app and back to show the overlay is removed when Instagram leaves the screen.
 10. Show how to turn it off: Settings > Accessibility > IG Group Guard > off.
+
+## Re-submitting the declaration (v2.1.0)
+
+Play requires a new declaration when the API use changes. v2.1.0 changes: the service listens to
+Instagram events only (`packageNames`), adds a Pause for banking button and Quick Settings tile
+(`disableSelf()`), and stores the group button's screen position locally. Answers stay the same:
+purpose **App functionality**, personal or sensitive data collected or shared **No**. Re-record the
+video if the disclosure screen changed (it did not in v2.1.0).

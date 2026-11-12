@@ -1,0 +1,1 @@
+Covers the one-tap group chat button so you never start a group by accident.

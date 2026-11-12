@@ -6,6 +6,28 @@ as the GitHub Release notes.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-06
+
+### Fixed
+- Banner stuck for about a second at the wrong spot after typing a message: with the keyboard up,
+  the keyboard position overwrote the remembered spot, and when the keyboard closed the banner sat
+  there until the button settled. The remembered spot now only comes from the share sheet's
+  opening slide; other movement (keyboard, scrolling) hides the banner while moving (taps stay
+  blocked) and fades it in once the button stops (found with a screen recording on CPH2707).
+
+### Added
+- **Pause for banking** (issue #8): some banking and payment apps refuse to start while any
+  accessibility service is on. New "Pause for banking" button, a Quick Settings tile (tap to pause,
+  tap again to open Accessibility settings) and in-app steps for the volume-key accessibility
+  shortcut.
+
+### Changed
+- The accessibility service now receives events only from Instagram; leaving Instagram is noticed
+  by a 300 ms re-check while the banner is shown, and for 2 s after the button vanishes (it does
+  while the keyboard closes) the service keeps checking so the banner comes back.
+- The button's resting spot is learned only from a real slide-in and saved locally, so the first
+  opening after a restart (for example after Pause for banking) is instant too.
+
 ## [2.0.0] - 2026-11-05
 
 ### Added

@@ -1,0 +1,35 @@
+Ever selected a few people to share a post with, then tapped the wrong button and put them all in one group chat?
+
+In Instagram's share sheet, when you pick several people, a "Send to new group chat" button appears right under "Send separately". One tap creates a group of everyone you picked, with no confirmation, and shows them to each other.
+
+IG Group Guard covers that one button. Everything else keeps working: "Send separately" is normal, and Instagram's own "New group" icon still works when you really want a group.
+
+TWO MODES (your choice, in the app)
+- Block it (default): the button is greyed out and a tap does nothing.
+- Ask me first: tapping the button opens IG Group Guard's own "Create a group chat?" popup showing how many people are selected. Choose Create group to go ahead (for that share only), or Cancel to keep it blocked.
+
+ONLY ACTIVE IN INSTAGRAM
+IG Group Guard works only while Instagram is open. The moment you leave Instagram it sleeps: no overlay, no background work.
+
+PRIVACY
+- No internet permission. Nothing leaves your phone.
+- No data collected, stored or shared. No ads, no analytics, no accounts. Free and open source.
+- Does not read your messages or contacts.
+
+HOW IT WORKS
+It uses the Android Accessibility Service API only to find that one button on Instagram's share screen and cover it. On first launch it shows a clear disclosure and does nothing until you tap Agree. Turn it off any time in Settings > Accessibility, the Quick Settings tile, or the volume-key shortcut.
+
+IG Group Guard is not an accessibility tool for people with disabilities. It uses the Accessibility API only for the feature above.
+
+BANKING APPS
+Some banking and payment apps refuse to start while any accessibility service is on. Use "Pause for banking" (button, tile, or shortcut) to turn IG Group Guard off while you use them, then turn it back on.
+
+LIMITATIONS
+- Matches the English button label as a fallback.
+- With TalkBack, a double-tap can still reach the button.
+- An Instagram update may stop it finding the button; the button then works as normal until IG Group Guard is updated.
+- Android only.
+
+Open source: https://github.com/prabhath112/ig-group-guard
+
+IG Group Guard is not affiliated with, endorsed by, or sponsored by Instagram or Meta Platforms. "Instagram" is a trademark of its owner and is used only to describe compatibility.

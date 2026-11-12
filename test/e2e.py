@@ -381,6 +381,94 @@ def tc13():
         set_mode(False)
 
 
+@case("TC16", "hibernates when Instagram leaves the foreground, wakes when it returns")
+def tc16():
+    start_fixture("id")
+    b, got, ok = overlay_matches_button()
+    if not ok:
+        return False, f"no overlay while fixture foreground: {got}"
+    mark_log()
+    sh("input keyevent KEYCODE_HOME")       # leave the fixture (= Instagram package)
+    # Real property: the overlay is gone while Instagram is not foreground. On newer Android the
+    # service logs "hibernate (left Instagram)"; on older Android getRootInActiveWindow() is null
+    # right after Home so it removes the overlay via the normal no-button path. Either is fine.
+    slept = bool(wait_for(lambda: overlay_state() == "hidden"))
+    start_fixture("id")  # bring Instagram (the fixture) back to the foreground
+    woke = bool(wait_for(lambda: isinstance(overlay_state(), tuple), 8))
+    return slept and woke, f"overlay gone off-Instagram={slept} back on return={woke}"
+
+
+@case("TC14", "keyboard up then down: banner returns to home and does not linger at the up spot")
+def tc14():
+    start_fixture("id")
+    tree = dump()
+    move = find_by_id(tree, IG + ":id/fixture_move")
+    b_rest, got, ok = overlay_matches_button()
+    if not ok:
+        return False, f"no overlay at rest: button={b_rest} overlay={got}"
+    tap(*center(move))                      # footer jumps up, like the keyboard opening
+    b_up = find_group_button(dump())
+    up_ok = bool(wait_for(lambda: overlay_state() == b_up))
+    time.sleep(0.6)                         # settled up there (v2.0 overwrote "home" here)
+    tap(*center(move))                      # footer back down, like the keyboard closing
+    down_ok = bool(wait_for(lambda: overlay_state() == b_rest, 4))
+    # The window legitimately covers the button wherever it is (taps must stay blocked), so a
+    # transient placement at the up spot is fine. The bug was the banner LINGERING there: once it
+    # is back at home it must stay (not bounce back up). Check the final resting state holds.
+    time.sleep(0.8)
+    settled = overlay_state() == b_rest
+    ok = up_ok and down_ok and settled
+    return ok, f"rest={b_rest} up={b_up} followed up={up_ok} back down={down_ok} settled at home={settled}"
+
+
+def service_bound():
+    # A bound/running accessibility service shows as Service[label=...] in the dumpsys, under
+    # "Bound services:" on API 30+ and plain "services:" on API 26, so match the entry itself.
+    return "Service[label=IG Group Guard" in sh("dumpsys accessibility || true")
+
+
+@case("TC15", "'Pause for banking' turns the service off; it can be turned back on")
+def tc15():
+    # Clear the previous test's fixture so its share sheet (and our tap-swallowing overlay over the
+    # group button) is gone; a lingering overlay would otherwise eat the tap on the Pause button.
+    sh(f"am force-stop {IG}")
+    sh("input keyevent KEYCODE_HOME")
+    time.sleep(1)
+    ensure_service_enabled()
+    if not wait_for(service_bound, 10):
+        return False, "service did not bind"
+    mark_log()
+    off = False
+    for attempt in range(6):
+        # MainActivity rebuilds its view on every onResume, which resets the scroll to the top, so
+        # finding then tapping in separate steps races (the button drops below the fold between them).
+        # Open, scroll until the button is on screen, and tap it from the SAME dump, all in one go.
+        sh(f"am start -n {APP}/.MainActivity")
+        time.sleep(1.2)
+        node = None
+        for _ in range(5):
+            node = next((n for n in dump().iter("node") if n.get("text") == "Pause for banking"), None)
+            if node:
+                break
+            sh("input swipe 540 1700 540 500 250")
+            time.sleep(0.4)
+        if node is None:
+            continue
+        tap(*center(bounds(node)))
+        # Paused = service turned itself off: it leaves the enabled list (match by package, which is
+        # part of the fully-qualified component name stored there).
+        off = bool(wait_for(lambda: "paused by user" in guard_log()
+                            and APP + "/" not in sh("settings get secure enabled_accessibility_services"), 4))
+        if off:
+            break
+    if not off:
+        return False, "Pause tap did not turn the service off"
+    mark_log()
+    ensure_service_enabled()
+    back = bool(wait_for(lambda: "connected sdk=" in guard_log(), 10))
+    return back, f"paused={off} back on={back}"
+
+
 def overlay_window_frame():
     """Frame of our overlay window from the window manager, or None. Needs no uiautomator."""
     out = sh("dumpsys window windows")
@@ -411,9 +499,16 @@ def rt01():
 
 # ---------- setup ----------
 
+def service_in(cur):
+    # Android stores the fully-qualified component (pkg/pkg.GroupGuardService) even if a short form
+    # was written, so match by package rather than the short SERVICE string. Matching wrong caused
+    # the setting to be rewritten on every call, rebinding the service every few seconds.
+    return APP + "/" in cur
+
+
 def ensure_service_enabled():
     cur = sh("settings get secure enabled_accessibility_services")
-    if SERVICE not in cur:
+    if not service_in(cur):
         new = SERVICE if cur in ("", "null") else cur + ":" + SERVICE
         sh(f"settings put secure enabled_accessibility_services {new}")
         sh("settings put secure accessibility_enabled 1")
@@ -421,7 +516,7 @@ def ensure_service_enabled():
 
 def rebind_service(pause=1.0):
     cur = sh("settings get secure enabled_accessibility_services")
-    others = ":".join(s for s in cur.split(":") if s and s != SERVICE and s != "null")
+    others = ":".join(s for s in cur.split(":") if s and APP + "/" not in s and s != "null")
     sh(f"settings put secure enabled_accessibility_services {others or 'null'}")
     time.sleep(pause)
     ensure_service_enabled()
@@ -467,7 +562,7 @@ def main():
         for c in (tc01, tc00, tc11):
             c()
         start_fixture("id")
-        cases = [tc02, tc03, tc04, tc05, tc06, tc07, tc08, tc09, tc12, tc13, tc10]
+        cases = [tc02, tc03, tc04, tc05, tc06, tc07, tc08, tc09, tc12, tc13, tc14, tc15, tc16, tc10]
 
     for c in cases:
         c()
