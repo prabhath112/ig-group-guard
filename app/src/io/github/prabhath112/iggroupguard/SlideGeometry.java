@@ -39,6 +39,11 @@ final class SlideGeometry {
     static int parseCount(CharSequence text) {
         if (text == null) return -1;
         Matcher m = COUNT.matcher(text);
-        return m.find() ? Integer.parseInt(m.group(1)) : -1;
+        if (!m.find()) return -1;
+        try {
+            return Integer.parseInt(m.group(1));
+        } catch (NumberFormatException e) {
+            return -1; // a digit run longer than int overflows; treat as unknown
+        }
     }
 }

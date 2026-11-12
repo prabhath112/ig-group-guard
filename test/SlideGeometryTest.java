@@ -56,6 +56,7 @@ public final class SlideGeometryTest {
         eq("parseCount: no number", -1, SlideGeometry.parseCount("Send to new group chat"));
         eq("parseCount: null", -1, SlideGeometry.parseCount(null));
         eq("parseCount: first match wins", 3, SlideGeometry.parseCount("(3) and (4)"));
+        eq("parseCount: overflow digit run -> -1", -1, SlideGeometry.parseCount("(99999999999999999999)"));
 
         System.out.println(failures == 0
                 ? "SlideGeometryTest: ALL PASSED"
