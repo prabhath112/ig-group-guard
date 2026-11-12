@@ -20,6 +20,11 @@ as the GitHub Release notes.
   active-window root (reported as "unknown") stopped the poll and left the service event-only, so if
   Instagram sent no event we accept the share sheet stayed uncovered for a few seconds. The poll now
   keeps running unless a different app is confirmed in front.
+- An adversarial code audit found and fixed several edge cases: a transient "button not found" frame
+  (a video frame with no window root) no longer cancels an in-progress "Ask me first" approval or
+  closes the confirmation popup; if the overlay fails to attach it now retries instead of leaving the
+  poll dead (button could stay tappable); a group button in a non-active window is kept covered by the
+  recheck; and a null package name on a scanned system/keyboard window no longer crashes the service.
 
 ### Changed
 - Accessibility events are now coalesced: a burst collapses to a single scan on the next loop turn.
