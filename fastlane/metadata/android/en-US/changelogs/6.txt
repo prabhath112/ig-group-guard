@@ -1,0 +1,2 @@
+Smoother in Instagram: the overlay no longer scans every app window on each event, so Instagram stays responsive and the banner appears without delay.
+Covers the group button faster after the keyboard closes, including after typing a longer message.

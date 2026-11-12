@@ -486,8 +486,8 @@ def rt01():
     frame = overlay_window_frame()
     shot = os.path.join(ROOT, "build", "rt01-phone.png")
     with open(shot, "wb") as f:
-        f.write(subprocess.run(["adb", "-s", serial, "exec-out", "screencap", "-p"],
-                               capture_output=True).stdout)
+        argv = ["adb"] + (["-s", serial] if serial else []) + ["exec-out", "screencap", "-p"]
+        f.write(subprocess.run(argv, capture_output=True).stdout)
     # Independent bounds from uiautomator when the screen is idle enough to dump.
     try:
         button = find_group_button(dump())

@@ -6,6 +6,44 @@ as the GitHub Release notes.
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-11-12
+
+### Fixed
+- Instagram felt laggy and the banner sometimes appeared late. The service ran a full scan
+  (`getWindows()` over every interactive window, plus a node-tree walk) on every Instagram
+  accessibility event, with no coalescing. During event bursts (video playback, list thumbnails,
+  a video-call picture-in-picture adding windows) this saturated the main thread, so the refresh
+  that should place the banner backed up behind the burst. Measured on CPH2707: about 6-15% CPU
+  while Instagram was foreground, dropping to near 0% after the fix.
+- Banner sometimes appeared seconds late on a fresh share sheet. The watch-poll only re-armed when
+  the foreground app was confirmed to be Instagram; a video frame or transition that returned no
+  active-window root (reported as "unknown") stopped the poll and left the service event-only, so if
+  Instagram sent no event we accept the share sheet stayed uncovered for a few seconds. The poll now
+  keeps running unless a different app is confirmed in front.
+- An adversarial code audit found and fixed several edge cases: a transient "button not found" frame
+  (a video frame with no window root) no longer cancels an in-progress "Ask me first" approval or
+  closes the confirmation popup; if the overlay fails to attach it now retries instead of leaving the
+  poll dead (button could stay tappable); a group button in a non-active window is kept covered by the
+  recheck; and a null package name on a scanned system/keyboard window no longer crashes the service.
+- The learned button position is now discarded on rotation, fold, split-screen or density change
+  (`onConfigurationChanged`), so after rotating, the banner re-learns the correct spot instead of
+  sitting at a stale one.
+
+### Added
+- A dependency-free JVM unit test (`test/SlideGeometryTest.java`) covering the overlay decision logic
+  (slide-in detection, same-column, towards/back-to home, people-count parsing), extracted into
+  `SlideGeometry` and run as part of `build.sh` so a regression fails the build and CI.
+
+### Changed
+- Accessibility events are now coalesced: a burst collapses to a single scan on the next loop turn.
+- Polls and the per-frame follow scan only Instagram's active window; the heavier all-windows
+  `getWindows()` scan runs only on real Instagram events. Keeps the continuous poll cheap.
+- The group button is looked for in Instagram's active window first (one tree); the heavier
+  `getWindows()` over all windows is only a fallback. This is the main CPU and latency saver.
+- The fast re-check after the group button vanishes (keyboard open on the share sheet) now lasts
+  6 s instead of 2 s, so closing the keyboard re-covers the button quickly even after typing a
+  longer message. Scoped to a share sheet that was just open, so general scrolling pays nothing.
+
 ## [2.1.0] - 2026-11-06
 
 ### Fixed

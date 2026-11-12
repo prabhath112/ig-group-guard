@@ -1,6 +1,7 @@
 package io.github.prabhath112.iggroupguard;
 
 import android.accessibilityservice.AccessibilityService;
+import android.content.res.Configuration;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.os.Build;
@@ -23,8 +24,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Covers Instagram's "Send to new group chat (N)" share-sheet button with a grey,
@@ -58,12 +57,24 @@ public class GroupGuardService extends AccessibilityService {
     private static final long SETTLE_MS = 70; // unchanged this long = stopped (> 30-40 ms update gap)
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    // While searching (no overlay up) the watch-poll scans only Instagram's active window -- cheap, and
+    // the sheet opens there. While an overlay IS up (window != null), the recheck scans deep (all windows)
+    // so a button living in a non-active window stays covered and is not dropped by the next poll. The
+    // per-frame follow stays shallow: it only runs mid-slide, when the button is in the active window.
     private final Runnable recheck = new Runnable() {
-        @Override public void run() { refresh(); }
+        @Override public void run() { refresh(window != null); }
+    };
+    // Instagram fires accessibility events in bursts (video playback, list thumbnails loading). Each
+    // refresh() does a full getWindows() + node-tree walk, so running one per event saturates the main
+    // thread: CPU spikes and the refresh that should place the banner backs up behind the burst (banner
+    // arrives late). Coalesce instead -- a burst collapses to one scan on the next loop turn.
+    private boolean refreshScheduled;
+    private final Runnable refreshNow = new Runnable() {
+        @Override public void run() { refreshScheduled = false; refresh(true); }
     };
     private final Choreographer choreographer = Choreographer.getInstance();
     private final Choreographer.FrameCallback follow = new Choreographer.FrameCallback() {
-        @Override public void doFrame(long frameTimeNanos) { refresh(); }
+        @Override public void doFrame(long frameTimeNanos) { refresh(false); }
     };
 
     private WindowManager wm;
@@ -73,13 +84,18 @@ public class GroupGuardService extends AccessibilityService {
     private long movedAt;            // uptime of the last position change
     private final Rect shown = new Rect();       // current window bounds
     private final Rect lastButton = new Rect();  // button bounds at the previous check
-    // ponytail: in memory only (privacy policy: only the consent flag is stored). First open after
-    // the service starts measures it; every later open is instant.
+    // The button's learned resting spot. Persisted to private prefs (MainActivity.saveHome) and reloaded
+    // on connect, so the first open after a restart is instant too. It is one of the three locally stored
+    // values named in the privacy policy (consent flag, Block/Ask choice, button position).
     private Rect home;
     private boolean opening;          // true from the button's first sighting until it first settles
     private int openingFromTop;       // where the button was first seen in this opening
     private long graceUntil;          // keep re-checking until then after the button vanished
-    private static final long GRACE_MS = 2000, GRACE_STEP_MS = 50, WATCH_STEP_MS = 120;
+    // GRACE_MS is also how long we keep fast-polling (GRACE_STEP_MS) after the group button vanishes,
+    // which is exactly when the keyboard opens on the share sheet. Long enough to span typing a message,
+    // so closing the keyboard re-covers the button within ~50 ms. Scoped to a share sheet that was just
+    // open (grace only arms after the button was tracked), so general scrolling/comments pay nothing.
+    private static final long GRACE_MS = 6000, GRACE_STEP_MS = 50, WATCH_STEP_MS = 120;
 
     // Set while the service is bound, so the Quick Settings tile and the app can pause it.
     private static volatile GroupGuardService running;
@@ -99,7 +115,6 @@ public class GroupGuardService extends AccessibilityService {
 
     private FrameLayout confirm;      // our own "Create a group chat?" popup (Ask me first mode)
     private boolean allowedThisSheet; // user said "Create group": leave the button alone until the sheet closes
-    private static final Pattern COUNT = Pattern.compile("\\((\\d+)\\)"); // "... (3)"
 
     @Override
     protected void onServiceConnected() {
@@ -108,15 +123,31 @@ public class GroupGuardService extends AccessibilityService {
         home = MainActivity.savedHome(this); // remembered across restarts (e.g. Pause for banking)
         GuardTile.refresh(this);
         Log.i(TAG, "connected sdk=" + Build.VERSION.SDK_INT);
-        refresh(); // share sheet may already be open when the service is turned on
+        refresh(true); // share sheet may already be open when the service is turned on
     }
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        refresh();
+        if (refreshScheduled) return; // a burst of events collapses to one refresh (see refreshNow)
+        refreshScheduled = true;
+        handler.post(refreshNow);
     }
 
-    private void refresh() {
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        // home is an absolute screen rect. A rotation / fold / split-screen / density change invalidates
+        // it, so drop it (in memory and on disk) and let the next share sheet re-learn the resting spot
+        // rather than placing the banner at a stale position.
+        if (home != null) {
+            home = null;
+            MainActivity.saveHome(this, null);
+            Log.i(TAG, "home cleared (configuration changed)");
+        }
+        refresh(true);
+    }
+
+    private void refresh(boolean deep) {
         handler.removeCallbacks(recheck);
         choreographer.removeFrameCallback(follow);
         // Active only while Instagram is the foreground app. The moment it is not, tear everything
@@ -130,22 +161,28 @@ public class GroupGuardService extends AccessibilityService {
             return;
         }
         // Play policy: no use of the Accessibility API before the in-app disclosure is accepted.
-        Rect button = MainActivity.hasConsent(this) ? findGroupButton() : null;
+        Rect button = MainActivity.hasConsent(this) ? findGroupButton(deep) : null;
         if (button == null) {
+            long nowMs = SystemClock.uptimeMillis();
             if (window != null || !lastButton.isEmpty()) {
-                // The button can vanish for a moment while the keyboard closes. Instagram is still in
-                // front (checked above), but may send nothing more, so keep looking for a short while.
-                graceUntil = SystemClock.uptimeMillis() + GRACE_MS;
+                // The button can vanish for a moment while the keyboard closes or a video/transition frame
+                // returns no root. Instagram is still in front (checked above) but may send nothing more,
+                // so keep looking for a short while.
+                graceUntil = nowMs + GRACE_MS;
             }
-            hide();
-            if (SystemClock.uptimeMillis() < graceUntil) {
+            if (nowMs < graceUntil) {
+                // Transient loss: drop the overlay but do NOT cancel an approved sheet (allowedThisSheet)
+                // or an open confirm popup -- a single null frame must not force the user to confirm the
+                // group again. Keep polling fast until the button returns or grace expires.
+                removeWindow();
+                lastButton.setEmpty();
                 handler.postDelayed(recheck, GRACE_STEP_MS);
-            } else if (fg != null && fg == 1) {
-                // Instagram is foreground but the share sheet is not up yet. Being event-driven, we
-                // would otherwise wait for Instagram's next event (~0.9 s on a fresh open, measured on
-                // CPH2707) and the real group button stays tappable that whole time. Poll gently while
-                // Instagram is in front so the sheet is covered within WATCH_STEP_MS. Stops the moment
-                // Instagram is not foreground (hibernate above), so it is bounded, not a global poll.
+            } else {
+                // Grace expired (or was never armed): the share sheet is really gone. Full reset -- this
+                // clears the per-sheet "Create group" approval and dismisses any confirm popup. Keep
+                // polling (fg == 1, or fg == null for a video/transition frame) so the next open is caught
+                // within WATCH_STEP_MS; only a confirmed other app (fg == 0) stops it, above.
+                hide();
                 handler.postDelayed(recheck, WATCH_STEP_MS);
             }
             return;
@@ -180,7 +217,7 @@ public class GroupGuardService extends AccessibilityService {
             // Learn home only from a real slide-in (button rose from below), not from a sheet that was
             // already open (service restarted) or one with the keyboard up: that stored the keyboard-up
             // spot and the next opening showed the banner there (log, CPH2707, 2026-11-06 15:55).
-            boolean slidIn = openingFromTop - button.top > button.height() / 2;
+            boolean slidIn = SlideGeometry.slidIn(openingFromTop, button.top, button.height());
             if (slidIn && (home == null || !home.equals(button))) {
                 home = new Rect(button);
                 MainActivity.saveHome(this, home);
@@ -193,12 +230,13 @@ public class GroupGuardService extends AccessibilityService {
         // (keyboard, scrolling) takes the invisible-follow path below and fades in once it stops.
         // Height is not compared: the button first shows up clipped by the screen edge (measured:
         // 42 px, then 95 px, then full 131 px), and waiting for full height cost ~100 ms.
-        boolean sameColumn = home != null && button.left == home.left && button.right == home.right;
-        boolean towardsHome = opening && moving && sameColumn && button.top >= home.top;
+        boolean sameColumn = home != null
+                && SlideGeometry.sameColumn(button.left, button.right, home.left, home.right);
+        int homeTop = home == null ? 0 : home.top; // only read when sameColumn, which implies home != null
+        boolean towardsHome = SlideGeometry.towardsHome(opening, moving, sameColumn, button.top, homeTop);
         // Keyboard closing: the button comes back DOWN to home. Home is reliable now (only learned from
         // the opening slide), so show the banner there at once instead of waiting for it to settle.
-        boolean backDownHome = !opening && moving && sameColumn && button.top < home.top
-                && button.top >= prevTop;
+        boolean backDownHome = SlideGeometry.backDownHome(opening, moving, sameColumn, button.top, homeTop, prevTop);
         Rect bounds = button;
         boolean bannerAtBottom = false;
         if (towardsHome) {
@@ -215,7 +253,13 @@ public class GroupGuardService extends AccessibilityService {
         }
         int bannerHeight = towardsHome || backDownHome ? home.height() : button.height();
         place(bounds, bannerHeight, bannerAtBottom);
-        if (banner == null) return; // window could not be added (service shutting down)
+        if (banner == null) {
+            // place() could not attach the overlay (updateViewLayout/addView threw: view detached or a
+            // dead token). Its catch says "re-add next time" -- give it one: reschedule the poll instead
+            // of returning dead, or with no further event the button would stay uncovered and tappable.
+            handler.postDelayed(recheck, WATCH_STEP_MS);
+            return;
+        }
         String label = getString(MainActivity.askFirst(this) ? R.string.banner_ask : R.string.banner_block);
         if (!label.contentEquals(banner.getText())) banner.setText(label);
 
@@ -272,26 +316,35 @@ public class GroupGuardService extends AccessibilityService {
     }
 
     /** Bounds of the group button in any on-screen Instagram window, or null. */
-    private Rect findGroupButton() {
-        AccessibilityNodeInfo node = findGroupNode();
+    private Rect findGroupButton(boolean deep) {
+        AccessibilityNodeInfo node = findGroupNode(deep);
         if (node == null) return null;
         Rect r = new Rect();
         node.getBoundsInScreen(r);
         return r.isEmpty() ? null : r;
     }
 
-    private AccessibilityNodeInfo findGroupNode() {
+    private AccessibilityNodeInfo findGroupNode(boolean deep) {
+        // The share sheet is a modal in Instagram's own active window, so the button is almost always in
+        // getRootInActiveWindow() (one tree to walk). This cheap scan is all the frequent callers (120 ms
+        // poll, 16 ms follow) ever do. getWindows() builds and walks EVERY interactive window and is much
+        // heavier (worse with a video-call PiP up); only the deep callers (real Instagram events) fall
+        // back to it, for the rare case the button is in another window.
+        AccessibilityNodeInfo n = findIn(getRootInActiveWindow());
+        if (n != null || !deep) return n;
         List<AccessibilityWindowInfo> windows = getWindows();
-        if (windows == null || windows.isEmpty()) return findIn(getRootInActiveWindow());
+        if (windows == null) return null;
         for (AccessibilityWindowInfo w : windows) {
-            AccessibilityNodeInfo n = findIn(w.getRoot());
+            n = findIn(w != null ? w.getRoot() : null);
             if (n != null) return n;
         }
         return null;
     }
 
     private static AccessibilityNodeInfo findIn(AccessibilityNodeInfo root) {
-        if (root == null || !INSTAGRAM.contentEquals(root.getPackageName())) return null;
+        if (root == null) return null;
+        CharSequence pkg = root.getPackageName(); // null on some system/IME window roots during a deep scan
+        if (pkg == null || !INSTAGRAM.contentEquals(pkg)) return null;
         AccessibilityNodeInfo node = first(root.findAccessibilityNodeInfosByViewId(GROUP_BUTTON_ID));
         if (node == null) {
             node = first(root.findAccessibilityNodeInfosByText(GROUP_BUTTON_TEXT));
@@ -302,12 +355,11 @@ public class GroupGuardService extends AccessibilityService {
 
     /** Number of selected people from the button label "Send to new group chat (N)", or -1. */
     private int selectedCount() {
-        AccessibilityNodeInfo node = findGroupNode();
+        AccessibilityNodeInfo node = findGroupNode(true);
         if (node == null) return -1;
         StringBuilder text = new StringBuilder();
         collectText(node, text, 0);
-        Matcher m = COUNT.matcher(text);
-        return m.find() ? Integer.parseInt(m.group(1)) : -1;
+        return SlideGeometry.parseCount(text);
     }
 
     private static void collectText(AccessibilityNodeInfo n, StringBuilder out, int depth) {
